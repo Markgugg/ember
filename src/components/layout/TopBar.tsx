@@ -24,15 +24,6 @@ export function TopBar() {
           ember
         </Link>
         <div className="flex items-center gap-1">
-          <Link
-            href="/library"
-            aria-current={pathname === "/library" ? "page" : undefined}
-            className={`rounded-md px-3 py-1.5 text-sm transition-colors duration-[120ms] hover:bg-raised hover:text-ink ${
-              pathname === "/library" ? "text-ink" : "text-ink-2"
-            }`}
-          >
-            Library
-          </Link>
           <button
             type="button"
             onClick={openSettings}

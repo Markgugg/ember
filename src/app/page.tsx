@@ -1,65 +1,183 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FileUp } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { TextArea } from "@/components/ui/TextArea";
+import { ActionChip } from "@/components/ui/Chip";
+import { AiLine } from "@/components/ui/AiVoice";
+import { Recorder } from "@/components/session/Recorder";
+import { ReasoningStream } from "@/components/session/ReasoningStream";
+import { useSessionStream } from "@/components/session/useSessionStream";
+import { SettingsModal } from "@/components/settings/SettingsModal";
+import { SAMPLE_TRANSCRIPT } from "@/lib/sample";
+
+const MIN_WORDS = 150;
 
 export default function Home() {
+  const [text, setText] = useState("");
+  const [source, setSource] = useState<"voice" | "paste" | "upload">("paste");
+  const [notice, setNotice] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { lines, streaming, failed, run, cancel } = useSessionStream();
+
+  const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const canSubmit = wordCount > 0 && !streaming;
+
+  const submit = useCallback(() => {
+    if (!canSubmit) return;
+    setNotice(null);
+    // Refusal redirect (F7) arrives as ?topic= — bias intersection toward it.
+    const topicHint =
+      new URLSearchParams(window.location.search).get("topic") ?? undefined;
+    void run({ transcriptText: text, source, topicHint });
+  }, [canSubmit, run, text, source]);
+
+  // Global keyboard grammar: ⌘Enter submits, / focuses, Esc cancels the stream.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        submit();
+      } else if (e.key === "Escape" && (streaming || failed)) {
+        cancel();
+      } else if (
+        e.key === "/" &&
+        !streaming &&
+        document.activeElement?.tagName !== "TEXTAREA" &&
+        document.activeElement?.tagName !== "INPUT"
+      ) {
+        e.preventDefault();
+        textareaRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [submit, streaming, failed, cancel]);
+
+  const onUpload = useCallback(async (file: File) => {
+    if (!/\.(txt|vtt)$/i.test(file.name)) {
+      setNotice("Couldn't read that file — .txt and .vtt work.");
+      return;
+    }
+    setText(await file.text());
+    setSource("upload");
+    setNotice(null);
+  }, []);
+
+  /* ── streaming state ────────────────────────────────────────────── */
+  if (streaming || failed) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-16">
+        <ReasoningStream lines={lines} excerpt={text} active={streaming} />
+        {failed ? (
+          <div className="mt-8 flex gap-3">
+            <Button onClick={() => void run({ transcriptText: text, source })}>
+              Try again
+            </Button>
+            <Button variant="ghost" onClick={cancel}>
+              Back
+            </Button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={cancel}
+            className="mt-12 text-xs text-ink-3 transition-colors duration-[120ms] hover:text-ink-2"
+          >
+            esc to cancel
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  /* ── input state ────────────────────────────────────────────────── */
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="mx-auto flex w-full max-w-[640px] flex-1 flex-col px-6 pt-24 pb-16">
+      <AiLine size="xl" className="mb-8">
+        What&apos;s on your mind?
+      </AiLine>
+
+      <div className="mb-4 flex items-center gap-4">
+        <Recorder
+          onTranscript={(t) => {
+            setText(t);
+            setSource("voice");
+          }}
+          onUnavailable={(reason) => setNotice(reason)}
+          disabled={streaming}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <span className="text-sm text-ink-3">talk it out, or paste below</span>
+      </div>
+
+      <TextArea
+        ref={textareaRef}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          if (source !== "voice") setSource("paste");
+        }}
+        placeholder="Paste a transcript, or just brain-dump."
+        className="min-h-[200px]"
+        aria-label="Your thinking"
+      />
+
+      {notice && (
+        <p className="mt-2 flex items-center gap-2 font-serif text-sm text-ink-2">
+          <span aria-hidden className="size-1.5 rounded-full bg-caution" />
+          {notice}
+        </p>
+      )}
+      {wordCount > 0 && wordCount < MIN_WORDS && (
+        <p className="mt-2 font-serif text-sm text-ink-2">
+          <span
+            aria-hidden
+            className="mr-2 inline-block size-1.5 rounded-full bg-caution"
+          />
+          That&apos;s about twenty seconds of thinking. Give me two minutes —
+          ramble is fine.
+        </p>
+      )}
+
+      <div className="mt-4 flex items-center justify-between">
+        {text.length === 0 ? (
+          <ActionChip
+            onClick={() => {
+              setText(SAMPLE_TRANSCRIPT);
+              setSource("paste");
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            Try it with a sample transcript →
+          </ActionChip>
+        ) : (
+          <span />
+        )}
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".txt,.vtt"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onUpload(f);
+              e.target.value = "";
+            }}
+          />
+          <Button variant="ghost" onClick={() => fileRef.current?.click()}>
+            <FileUp size={16} aria-hidden />
+            Upload .txt / .vtt
+          </Button>
+          <Button onClick={submit} disabled={!canSubmit}>
+            Find the post
+          </Button>
         </div>
-      </main>
+      </div>
+
+      <p className="mt-3 text-right text-xs text-ink-3">⌘⏎ to submit</p>
+      <SettingsModal />
     </div>
   );
 }

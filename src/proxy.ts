@@ -8,7 +8,7 @@ const ANON_COOKIE = "ember_anon";
  *    (RSCs can read but not set cookies — this is where it gets set).
  * 2. Keep the Supabase auth session fresh when Supabase is configured.
  */
-export async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
