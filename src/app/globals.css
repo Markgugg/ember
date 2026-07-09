@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+/* ─── ember design tokens ───────────────────────────────────────────
+   Dark-first, warm neutrals, one ember accent.
+   Sans = chrome & user content. Serif = the AI speaking. */
+
+:root {
+  /* surfaces */
+  --bg-base: #131110;
+  --bg-raised: #1b1917;
+  --bg-overlay: #232019;
+  /* lines */
+  --border-subtle: #2a2724;
+  --border-strong: #3a362f;
+  /* ink */
+  --text-primary: #edeae4;
+  --text-secondary: #a8a29a;
+  --text-tertiary: #6e6962;
+  /* accent + semantics */
+  --accent: #e8734a;
+  --success: #5ba97b;
+  --caution: #d9a13b;
+  --danger: #c4564a;
+  /* elevation */
+  --shadow-overlay: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-base: #faf9f7;
+    --bg-raised: #ffffff;
+    --bg-overlay: #ffffff;
+    --border-subtle: #ece9e4;
+    --border-strong: #d8d3ca;
+    --text-primary: #1b1917;
+    --text-secondary: #57534c;
+    --text-tertiary: #8d8880;
+    --accent: #d4562f;
+    --success: #3e8a5f;
+    --caution: #a97a20;
+    --danger: #b03e33;
+    --shadow-overlay: 0 8px 30px rgb(27 25 23 / 0.08);
+  }
+}
+
+@theme inline {
+  --color-base: var(--bg-base);
+  --color-raised: var(--bg-raised);
+  --color-overlay: var(--bg-overlay);
+  --color-line: var(--border-subtle);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text-primary);
+  --color-ink-2: var(--text-secondary);
+  --color-ink-3: var(--text-tertiary);
+  --color-ember: var(--accent);
+  --color-success: var(--success);
+  --color-caution: var(--caution);
+  --color-danger: var(--danger);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
+
+  /* type scale — 1.25 ratio */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.5625rem;
+  --text-xl--line-height: 2rem;
+  --text-2xl: 1.9375rem;
+  --text-2xl--line-height: 2.375rem;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --ease-out-quart: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-smooth: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --animate-rise-in: rise-in 200ms var(--ease-out-quart) both;
+  --animate-ember-breathe: ember-breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ember-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* focus — 2px ember ring, offset 2, focus-visible only */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* motion respects the user */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

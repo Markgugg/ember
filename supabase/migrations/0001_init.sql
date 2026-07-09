@@ -1,0 +1,159 @@
+-- ember — initial schema
+-- Requires: pgvector
+create extension if not exists vector;
+
+-- ── profiles ────────────────────────────────────────────────────────
+create table public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  audience text,
+  linkedin_url text,
+  voice_samples jsonb not null default '[]',
+  onboarded_at timestamptz
+);
+
+-- ── transcripts ─────────────────────────────────────────────────────
+create table public.transcripts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  source text not null check (source in ('voice', 'paste', 'upload')),
+  raw_text text not null,
+  word_count int not null,
+  created_at timestamptz not null default now()
+);
+
+-- ── insights ────────────────────────────────────────────────────────
+create table public.insights (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  transcript_id uuid not null references public.transcripts (id) on delete cascade,
+  text text not null,
+  quote text not null,
+  type text not null check (type in ('opinion', 'story', 'lesson')),
+  authority real not null check (authority between 0 and 1),
+  charge real not null check (charge between 0 and 1),
+  recurrence int not null default 1,
+  status text not null default 'vaulted' check (status in ('vaulted', 'drafted', 'posted')),
+  embedding vector(1536) not null,
+  last_seen_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+create index insights_user_status_idx on public.insights (user_id, status);
+create index insights_embedding_idx on public.insights
+  using ivfflat (embedding vector_cosine_ops) with (lists = 100);
+
+-- ── discourse_items (read-all, written by cron) ─────────────────────
+create table public.discourse_items (
+  id uuid primary key default gen_random_uuid(),
+  snapshot_at timestamptz not null,
+  title text not null,
+  summary text not null,
+  stance_a text,
+  stance_b text,
+  velocity real not null default 0,
+  sources jsonb not null default '[]',
+  embedding vector(1536) not null
+);
+create index discourse_snapshot_idx on public.discourse_items (snapshot_at desc);
+create index discourse_embedding_idx on public.discourse_items
+  using ivfflat (embedding vector_cosine_ops) with (lists = 100);
+
+-- ── briefs ──────────────────────────────────────────────────────────
+create table public.briefs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  insight_id uuid references public.insights (id) on delete set null,
+  discourse_item_id uuid references public.discourse_items (id) on delete set null,
+  intersection_score real,
+  intersection_rationale text,
+  recommendation text,
+  refusal jsonb,
+  origin text not null check (origin in ('session', 'prerun', 'library')),
+  status text not null default 'suggested'
+    check (status in ('suggested', 'consumed', 'dismissed', 'refused')),
+  created_at timestamptz not null default now()
+);
+create index briefs_user_idx on public.briefs (user_id, status, origin);
+
+-- ── drafts ──────────────────────────────────────────────────────────
+create table public.drafts (
+  id uuid primary key default gen_random_uuid(),
+  brief_id uuid not null references public.briefs (id) on delete cascade,
+  angle text not null check (angle in
+    ('story', 'contrarian', 'framework', 'prediction', 'lesson', 'commentary')),
+  rationale text not null,
+  body text not null,
+  is_primary boolean not null default false,
+  status text not null default 'suggested'
+    check (status in ('suggested', 'edited', 'copied', 'posted')),
+  edit_diff jsonb,
+  created_at timestamptz not null default now()
+);
+create index drafts_brief_idx on public.drafts (brief_id);
+
+-- ── prerun_suppressions ─────────────────────────────────────────────
+create table public.prerun_suppressions (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  insight_id uuid not null references public.insights (id) on delete cascade,
+  discourse_item_id uuid not null references public.discourse_items (id) on delete cascade,
+  primary key (user_id, insight_id, discourse_item_id)
+);
+
+-- ── RLS ─────────────────────────────────────────────────────────────
+alter table public.profiles enable row level security;
+alter table public.transcripts enable row level security;
+alter table public.insights enable row level security;
+alter table public.briefs enable row level security;
+alter table public.drafts enable row level security;
+alter table public.prerun_suppressions enable row level security;
+alter table public.discourse_items enable row level security;
+
+create policy "own profile" on public.profiles
+  for all using (id = auth.uid()) with check (id = auth.uid());
+create policy "own transcripts" on public.transcripts
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "own insights" on public.insights
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "own briefs" on public.briefs
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "own drafts" on public.drafts
+  for all using (
+    exists (select 1 from public.briefs b where b.id = brief_id and b.user_id = auth.uid())
+  ) with check (
+    exists (select 1 from public.briefs b where b.id = brief_id and b.user_id = auth.uid())
+  );
+create policy "own suppressions" on public.prerun_suppressions
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+-- discourse is shared, read-only for users; cron writes via service role (bypasses RLS)
+create policy "discourse readable" on public.discourse_items
+  for select using (true);
+
+-- ── similarity RPCs (server-side prefilter) ─────────────────────────
+create or replace function public.match_insights(
+  p_user_id uuid,
+  p_embedding vector(1536),
+  p_threshold float,
+  p_limit int default 5
+) returns table (id uuid, similarity float)
+language sql stable as $$
+  select i.id, 1 - (i.embedding <=> p_embedding) as similarity
+  from public.insights i
+  where i.user_id = p_user_id
+    and 1 - (i.embedding <=> p_embedding) >= p_threshold
+  order by i.embedding <=> p_embedding
+  limit p_limit;
+$$;
+
+create or replace function public.match_discourse(
+  p_snapshot_at timestamptz,
+  p_embedding vector(1536),
+  p_threshold float,
+  p_limit int default 8
+) returns table (id uuid, similarity float)
+language sql stable as $$
+  select d.id, 1 - (d.embedding <=> p_embedding) as similarity
+  from public.discourse_items d
+  where d.snapshot_at = p_snapshot_at
+    and 1 - (d.embedding <=> p_embedding) >= p_threshold
+  order by d.embedding <=> p_embedding
+  limit p_limit;
+$$;
