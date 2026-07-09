@@ -13,6 +13,7 @@ export type StageEvent =
   | { stage: "no_insights" }
   | { stage: "checking_discourse" }
   | { stage: "discourse_degraded" }
+  | { stage: "discourse_fallback" }
   | { stage: "intersection_found"; title: string; meta: string }
   | { stage: "no_intersection" }
   | { stage: "drafting" }
@@ -33,6 +34,8 @@ export function narrate(event: StageEvent): string {
       return "Checking what the AI world is arguing about right now…";
     case "discourse_degraded":
       return "Couldn’t reach live news — working from your words alone.";
+    case "discourse_fallback":
+      return "Couldn’t reach today’s news — checking against the debates that never die instead.";
     case "intersection_found":
       return `This connects to the fight over ${trim(event.title, 70)} (${event.meta}).`;
     case "no_intersection":

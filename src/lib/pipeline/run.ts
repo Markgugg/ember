@@ -1,7 +1,7 @@
 import "server-only";
 import { FIXTURE_MODE } from "@/lib/env";
 import { getRepo } from "@/lib/db";
-import type { Insight, TranscriptSource } from "@/lib/types";
+import type { DiscourseItem, Insight, TranscriptSource } from "@/lib/types";
 import { embed } from "@/lib/ai/embeddings";
 import { mineInsights } from "@/lib/ai/mine";
 import { judgePairs } from "@/lib/ai/judge";
@@ -110,9 +110,11 @@ export async function* runPipeline(
 
     /* ── 2. discourse ───────────────────────────────────────────── */
     yield { stage: "checking_discourse" };
-    let items = [] as Awaited<ReturnType<typeof getOrSeedSnapshot>>;
+    let items: DiscourseItem[] = [];
     try {
-      items = await getOrSeedSnapshot(repo);
+      const snapshot = await getOrSeedSnapshot(repo);
+      items = snapshot.items;
+      if (!snapshot.live) yield { stage: "discourse_fallback" };
     } catch {
       yield { stage: "discourse_degraded" };
     }
@@ -224,7 +226,7 @@ async function draftAndPersist(
   repo: Awaited<ReturnType<typeof getRepo>>,
   userId: string,
   insight: Insight,
-  item: Awaited<ReturnType<typeof getOrSeedSnapshot>>[number] | null,
+  item: DiscourseItem | null,
   intersection: { rationale: string; score: number | null },
 ): Promise<string> {
   const profile = await repo.getProfile(userId);

@@ -23,6 +23,8 @@ npm run dev        # → http://localhost:3000
 
 **Zero keys required.** With no `.env.local`, ember runs in fixture mode: deterministic heuristic AI (real sentence-level insight mining, real embedding-based matching) and an in-memory store — the full product loop works, including the refusal. Use the "Try it with a sample transcript" chip.
 
+**The AI context is live either way.** Discourse is pulled from Hacker News (Algolia API, keyless) at session time — with an Anthropic key it's clustered into named tensions by Haiku; without, top AI stories map to discourse items heuristically. If the pull fails, ember falls back to curated perennial debates and *says so* in the reasoning stream.
+
 To go live, copy `.env.example` → `.env.local` and fill in:
 
 | Key | Unlocks |
