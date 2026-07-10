@@ -446,17 +446,19 @@ function WelcomeFlow() {
             "linear-gradient(150deg, #0a66c2 0%, #0b5cb0 55%, #08417c 100%)",
         }}
       >
-        {/* Ambient texture. Sits under the gradient's own vignette so the
-            copy keeps its contrast; decorative, so it's aria-hidden. */}
-        <div className="pointer-events-none absolute inset-0 opacity-[0.16]">
+        {/* Ambient texture. The component masks itself thinner behind the
+            centred copy, so this layer can stay crisp instead of being dimmed
+            into mush. Decorative, so it's aria-hidden. */}
+        <div className="pointer-events-none absolute inset-0 opacity-[0.30]">
           <BackgroundShapes
             width={900}
             height={1000}
-            cellSize={36}
-            strokeWidth={7}
+            cellSize={46}
+            strokeWidth={6}
             colors={["white"]}
-            minInterval={1400}
-            maxInterval={4200}
+            minInterval={900}
+            maxInterval={2400}
+            churn={0.012}
             preserveAspectRatio="xMidYMid slice"
             className="h-full w-full"
           />
@@ -466,7 +468,7 @@ function WelcomeFlow() {
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse at 50% 45%, rgb(10 65 124 / 0.55) 0%, transparent 65%)",
+              "radial-gradient(ellipse at 50% 45%, rgb(10 65 124 / 0.35) 0%, transparent 70%)",
           }}
         />
 

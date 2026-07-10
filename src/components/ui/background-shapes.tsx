@@ -1,94 +1,100 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 
 /**
  * A slowly-shuffling grid of geometric marks, mirrored down the middle.
- * Drawn behind a solid colour as ambient texture, never as content.
+ * Ambient texture behind a solid colour, never content.
  *
- * Three corrections to the reference implementation, each load-bearing:
+ * Corrections to the reference implementation, each load-bearing:
  *
- *  1. Hydration. Picking the first shape with Math.random() during render
- *     makes the server and client disagree, which React reports as a
- *     hydration mismatch. Every cell now starts empty and only begins
- *     shuffling after mount, so the first paint is deterministic.
- *  2. Scale. The cell art is drawn in a 0-100 box, so the scale factor has
- *     to be cellSize/100. Hardcoding 0.2 silently assumed cellSize=20 and
- *     overflowed at any other size.
- *  3. Motion. One timer per cell means hundreds of timers; at small cell
- *     sizes that is a lot of wasted work behind a static panel. Cells share
- *     one ticker, and `prefers-reduced-motion` freezes the grid entirely.
+ *  1. Duplicate keys. The mirror of the centre column lands on itself, so
+ *     those cells rendered twice under one key and React warned once per
+ *     cell, per render. Cells are deduped by coordinate.
+ *  2. Wasted renders. A shared `assigned` array meant every cell re-rendered
+ *     on every tick, hundreds at a time, for a handful of actual changes.
+ *     Cells are memoised on their own shape, so only the ones that changed
+ *     do any work.
+ *  3. Hydration. Choosing a shape with Math.random() during render makes the
+ *     server and client disagree. The grid starts empty and fills in after
+ *     mount, so first paint is deterministic.
+ *  4. Scale. Cell art is drawn in a 0-100 box, so the factor must be
+ *     cellSize/100. Hardcoding 0.2 silently assumed cellSize === 20.
+ *
+ * Motion is a slow crossfade rather than a pop, and stops entirely under
+ * prefers-reduced-motion.
  */
 
-type CellProps = { colors: string[]; strokeWidth: number };
+type CellProps = { color: string; strokeWidth: number };
 
-const Dot = ({ colors }: CellProps) => (
-  <circle cx="50" cy="50" r="9.44" fill={colors[0]} fillRule="evenodd" />
-);
+const Dot = ({ color }: CellProps) => <circle cx="50" cy="50" r="7" fill={color} />;
 
-const Lines = ({ colors, strokeWidth }: CellProps) => (
+const Lines = ({ color, strokeWidth }: CellProps) => (
   <>
-    <line x1="25" x2="75" y1="25" y2="25" stroke={colors[0]} strokeWidth={strokeWidth} />
-    <line x1="25" x2="75" y1="50" y2="50" stroke={colors[0]} strokeWidth={strokeWidth} />
-    <line x1="25" x2="75" y1="75" y2="75" stroke={colors[0]} strokeWidth={strokeWidth} />
+    <line x1="28" x2="72" y1="34" y2="34" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    <line x1="28" x2="72" y1="50" y2="50" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    <line x1="28" x2="72" y1="66" y2="66" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
   </>
 );
 
-const Cross = ({ colors, strokeWidth }: CellProps) => (
+const Cross = ({ color, strokeWidth }: CellProps) => (
   <>
-    <line x1="25" x2="75" y1="25" y2="75" stroke={colors[0]} strokeWidth={strokeWidth} />
-    <line x1="25" x2="75" y1="75" y2="25" stroke={colors[0]} strokeWidth={strokeWidth} />
+    <line x1="30" x2="70" y1="30" y2="70" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    <line x1="30" x2="70" y1="70" y2="30" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
   </>
 );
 
-const Square = ({ colors, strokeWidth }: CellProps) => (
+const Square = ({ color, strokeWidth }: CellProps) => (
   <rect
-    width="50"
-    height="50"
-    x="25"
-    y="25"
+    width="42"
+    height="42"
+    x="29"
+    y="29"
+    rx="4"
     fill="none"
-    stroke={colors[0]}
+    stroke={color}
     strokeWidth={strokeWidth}
   />
 );
 
-const Slash = ({ colors, strokeWidth }: CellProps) => (
-  <line x1="25" x2="75" y1="75" y2="25" fill="none" stroke={colors[0]} strokeWidth={strokeWidth} />
+const Slash = ({ color, strokeWidth }: CellProps) => (
+  <line x1="30" x2="70" y1="70" y2="30" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+);
+
+const Ring = ({ color, strokeWidth }: CellProps) => (
+  <circle cx="50" cy="50" r="19" fill="none" stroke={color} strokeWidth={strokeWidth} />
 );
 
 const Empty = () => null;
-
-const Tile = () => <rect width="75" height="75" x="12.5" y="12.5" fill="rgba(255,255,255,0.1)" />;
 
 interface ShapeConfig {
   shape: (props: CellProps) => ReactElement | null;
   weight: number;
 }
 
-/** Empty is heavily weighted: the grid should read as texture, not pattern. */
+/**
+ * Empty dominates so the grid reads as texture rather than pattern. The
+ * reference's translucent filled tiles are gone: at low opacity they turned
+ * into grey blocks that made the whole panel look like a compression artifact.
+ */
 const SHAPES: ShapeConfig[] = [
-  { shape: Dot, weight: 1 },
+  { shape: Empty, weight: 11 },
+  { shape: Dot, weight: 2 },
   { shape: Lines, weight: 1 },
-  { shape: Cross, weight: 1 },
+  { shape: Cross, weight: 2 },
   { shape: Square, weight: 1 },
-  { shape: Slash, weight: 1 },
-  { shape: Empty, weight: 5 },
-  { shape: Tile, weight: 3 },
+  { shape: Slash, weight: 2 },
+  { shape: Ring, weight: 1 },
 ];
 
-const WEIGHTED: ShapeConfig[] = SHAPES.flatMap((item) =>
-  Array.from({ length: item.weight }, () => item),
+const EMPTY_INDEX = 0;
+
+const WEIGHTED: number[] = SHAPES.flatMap((item, i) =>
+  Array.from({ length: item.weight }, () => i),
 );
 
-const pickShape = (): ShapeConfig =>
-  WEIGHTED[Math.floor(Math.random() * WEIGHTED.length)] ?? SHAPES[0];
+const pickIndex = (): number =>
+  WEIGHTED[Math.floor(Math.random() * WEIGHTED.length)] ?? EMPTY_INDEX;
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
@@ -101,6 +107,36 @@ function usePrefersReducedMotion(): boolean {
   }, []);
   return reduced;
 }
+
+/** Memoised: a cell only re-renders when its own shape changes. */
+const Cell = memo(function Cell({
+  x,
+  y,
+  scale,
+  shapeIndex,
+  color,
+  strokeWidth,
+  fade,
+}: {
+  x: number;
+  y: number;
+  scale: number;
+  shapeIndex: number;
+  color: string;
+  strokeWidth: number;
+  fade: boolean;
+}) {
+  const ShapeComponent = (SHAPES[shapeIndex] ?? SHAPES[EMPTY_INDEX]).shape;
+  return (
+    <g transform={`translate(${x} ${y}) scale(${scale})`}>
+      {/* Keyed on the shape so a change remounts the node and replays the
+          fade, rather than snapping to the new mark. */}
+      <g key={shapeIndex} className={fade ? "animate-shape-in" : undefined}>
+        <ShapeComponent color={color} strokeWidth={strokeWidth} />
+      </g>
+    </g>
+  );
+});
 
 interface BackgroundShapesProps {
   width?: number;
@@ -124,74 +160,72 @@ export const BackgroundShapes = ({
   strokeWidth = 10,
   colors = ["white"],
   className = "",
-  minInterval = 1000,
-  maxInterval = 5000,
-  churn = 0.06,
+  minInterval = 900,
+  maxInterval = 2200,
+  churn = 0.015,
   preserveAspectRatio = "xMidYMid meet",
 }: BackgroundShapesProps) => {
   const borderSize = cellSize * 2;
   const scale = cellSize / 100;
-  const colorsKey = colors.join("|");
+  const color = colors[0] ?? "white";
   const reducedMotion = usePrefersReducedMotion();
 
-  /** Cell origins, computed once: left half plus its mirror. */
+  /**
+   * Cell origins: the left half plus its mirror, deduped. Without the dedupe
+   * the centre column mirrors onto itself and collides.
+   */
   const cells = useMemo(() => {
+    const seen = new Set<string>();
     const list: { x: number; y: number }[] = [];
     for (let x = borderSize; x < width / 2; x += cellSize) {
       for (let y = borderSize; y < height - borderSize; y += cellSize) {
-        list.push({ x, y });
-        list.push({ x: width - cellSize - x, y });
+        for (const cx of [x, width - cellSize - x]) {
+          const key = `${cx}-${y}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          list.push({ x: cx, y });
+        }
       }
     }
     return list;
   }, [width, height, cellSize, borderSize]);
 
-  // Deterministic first paint: an empty grid renders identically on the
-  // server and the client. Shapes arrive on the first post-mount tick.
+  // Deterministic first paint: an empty grid renders the same on both sides.
   const [assigned, setAssigned] = useState<number[]>(() =>
-    cells.map(() => SHAPES.indexOf(SHAPES.find((s) => s.shape === Empty)!)),
+    cells.map(() => EMPTY_INDEX),
   );
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setAssigned(cells.map(() => SHAPES.indexOf(pickShape())));
+    setAssigned(cells.map(() => pickIndex()));
+    setMounted(true);
   }, [cells]);
 
+  const churnRef = useRef(churn);
+  churnRef.current = churn;
+
   useEffect(() => {
-    if (reducedMotion || cells.length === 0) return;
+    if (reducedMotion || !mounted || cells.length === 0) return;
     let timeoutId: ReturnType<typeof setTimeout>;
 
     const tick = () => {
       setAssigned((prev) => {
         const next = [...prev];
-        const rerolls = Math.max(1, Math.round(next.length * churn));
+        const rerolls = Math.max(1, Math.round(next.length * churnRef.current));
         for (let i = 0; i < rerolls; i++) {
-          next[Math.floor(Math.random() * next.length)] = SHAPES.indexOf(pickShape());
+          next[Math.floor(Math.random() * next.length)] = pickIndex();
         }
         return next;
       });
-      timeoutId = setTimeout(tick, Math.random() * (maxInterval - minInterval) + minInterval);
+      timeoutId = setTimeout(
+        tick,
+        Math.random() * (maxInterval - minInterval) + minInterval,
+      );
     };
 
     timeoutId = setTimeout(tick, minInterval);
     return () => clearTimeout(timeoutId);
-  }, [cells.length, minInterval, maxInterval, churn, reducedMotion]);
-
-  const rendered = useMemo<ReactNode[]>(
-    () =>
-      cells.map((cell, i) => {
-        const ShapeComponent = (SHAPES[assigned[i]] ?? SHAPES[0]).shape;
-        return (
-          <g key={`${cell.x}-${cell.y}`} transform={`translate(${cell.x} ${cell.y})`}>
-            <g transform={`scale(${scale})`}>
-              <ShapeComponent colors={colors} strokeWidth={strokeWidth} />
-            </g>
-          </g>
-        );
-      }),
-    // colors identity changes per render; the join key is the stable signal.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cells, assigned, scale, strokeWidth, colorsKey],
-  );
+  }, [cells.length, minInterval, maxInterval, reducedMotion, mounted]);
 
   return (
     <svg
@@ -200,10 +234,37 @@ export const BackgroundShapes = ({
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio={preserveAspectRatio}
       className={className}
+      shapeRendering="geometricPrecision"
       aria-hidden
       focusable="false"
     >
-      {rendered}
+      <defs>
+        {/* Thins the pattern behind the centred copy so text keeps contrast,
+            without dimming the whole layer into mush. */}
+        <radialGradient id="bg-shapes-fade" cx="50%" cy="46%" r="62%">
+          <stop offset="0%" stopColor="black" stopOpacity="0.18" />
+          <stop offset="55%" stopColor="black" stopOpacity="0.7" />
+          <stop offset="100%" stopColor="white" stopOpacity="1" />
+        </radialGradient>
+        <mask id="bg-shapes-mask">
+          <rect width={width} height={height} fill="url(#bg-shapes-fade)" />
+        </mask>
+      </defs>
+
+      <g mask="url(#bg-shapes-mask)">
+        {cells.map((cell, i) => (
+          <Cell
+            key={`${cell.x}-${cell.y}`}
+            x={cell.x}
+            y={cell.y}
+            scale={scale}
+            shapeIndex={assigned[i] ?? EMPTY_INDEX}
+            color={color}
+            strokeWidth={strokeWidth}
+            fade={!reducedMotion}
+          />
+        ))}
+      </g>
     </svg>
   );
 };
