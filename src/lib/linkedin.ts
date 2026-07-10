@@ -102,6 +102,15 @@ export function linkedinReady(profile: Profile | null): boolean {
 export interface PostLink {
   url: string;
   title?: string | null;
+  description?: string | null;
+  /**
+   * The article's own image, passed straight to LinkedIn as the card's
+   * thumbnail. We supply it rather than letting LinkedIn crawl for it: the
+   * crawler is 403'd by openai.com and, as we found the hard way, produces an
+   * imageless card for anthropic.com too even when the page serves og:image
+   * to everyone else. Supplying it makes the card's picture our decision.
+   */
+  imageUrl?: string | null;
 }
 
 /**
@@ -192,14 +201,15 @@ export async function uploadImage(
 /**
  * Publish a post as the member. Returns the LinkedIn post id.
  *
- * Three shapes, in descending order of what we can control:
+ * An ARTICLE share is one card carrying the picture, the headline, the domain,
+ * and the link, all clickable. That is strictly better than an IMAGE share,
+ * which takes the media slot and leaves the URL as bare text in the body.
  *
- *  IMAGE   — an asset we uploaded. The only way to guarantee a picture, since
- *            LinkedIn's crawler is 403'd by Cloudflare-fronted publishers. The
- *            link lives in the body text, because the media slot is taken.
- *  ARTICLE — LinkedIn crawls the URL and builds the card itself. Free, but it
- *            renders as a bare box whenever the crawl fails.
- *  NONE    — plain text.
+ * The catch is the picture. LinkedIn fills the card by crawling the page, and
+ * that crawl fails often enough to matter: openai.com 403s LinkedInBot
+ * outright, and anthropic.com serves og:image to everyone yet still produced
+ * an imageless card. So we hand LinkedIn the thumbnail. Its API rejects an
+ * uploaded asset alongside originalUrl (400), but accepts a thumbnail URL.
  *
  * Nothing here invents an image. The picture is the article's own, or absent.
  */
@@ -207,32 +217,26 @@ export async function postToLinkedIn(
   profile: Profile,
   text: string,
   link?: PostLink | null,
-  imageAsset?: string | null,
 ): Promise<string> {
   if (!linkedinReady(profile)) {
     throw new Error("linkedin not connected or token expired");
   }
 
-  const category = imageAsset ? "IMAGE" : link ? "ARTICLE" : "NONE";
   const shareContent: Record<string, unknown> = {
     shareCommentary: { text },
-    shareMediaCategory: category,
+    shareMediaCategory: link ? "ARTICLE" : "NONE",
   };
 
-  if (imageAsset) {
-    shareContent.media = [
-      {
-        status: "READY",
-        media: imageAsset,
-        ...(link?.title ? { title: { text: link.title.slice(0, 200) } } : {}),
-      },
-    ];
-  } else if (link) {
+  if (link) {
     shareContent.media = [
       {
         status: "READY",
         originalUrl: link.url,
-        ...(link.title ? { title: { text: link.title.slice(0, 200) } } : {}),
+        ...(link.title ? { title: { text: link.title.slice(0, 180) } } : {}),
+        ...(link.description
+          ? { description: { text: link.description.slice(0, 250) } }
+          : {}),
+        ...(link.imageUrl ? { thumbnails: [{ url: link.imageUrl }] } : {}),
       },
     ];
   }

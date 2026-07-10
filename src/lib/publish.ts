@@ -10,46 +10,30 @@ export type PublishResult =
   | { ok: false; error: string };
 
 /**
- * The link a post should carry. Prefer the article being discussed, since it's
- * the thing with a preview image and the thing the reader wants. Fall back to
- * the discussion thread when the story was a self-post with no outbound link.
- * Returns null when the post was written from a transcript alone, because
- * there is then nothing honest to link to.
- */
-/**
- * Decide how the source appears on the post, and prepare it.
+ * Fill in the card LinkedIn will render: the article's own image, headline and
+ * blurb, read from its Open Graph tags.
  *
- * You cannot have both an image and a link card: shareMediaCategory is one
- * value. But an ARTICLE card *contains* an image whenever LinkedIn can crawl
- * the page, which is the richer result — picture, headline, and domain in one
- * unit, all clickable. So we only take the image into our own hands when
- * LinkedIn's crawler is blocked and the card would come out empty.
+ * We supply these rather than letting LinkedIn crawl for them. Its crawler is
+ * 403'd by openai.com, and even anthropic.com — which serves og:image happily
+ * to everyone else — came back as an imageless card. Supplying the thumbnail
+ * makes the picture our decision instead of a coin flip.
  *
- * Returns null to mean "let LinkedIn render the card". Any failure along the
- * upload path also returns null: a post that falls back to a plain card beats
- * a post that never went out.
+ * Best effort. A link with no image still posts as a plain card, and a failure
+ * here never stops the post going out.
  */
-async function attachArticleImage(
-  profile: Profile,
-  articleUrl: string,
-): Promise<string | null> {
+async function enrichLink(link: PostLink): Promise<PostLink> {
   try {
-    const { fetchArticlePreview, fetchImageBytes, linkedinCanRenderCard } =
-      await import("@/lib/preview");
-
-    // LinkedIn can do better than we can: its card carries the link too.
-    if (await linkedinCanRenderCard(articleUrl)) return null;
-
-    const preview = await fetchArticlePreview(articleUrl);
-    if (!preview.fetched || !preview.image) return null;
-
-    const image = await fetchImageBytes(preview.image);
-    if (!image) return null;
-
-    const { uploadImage } = await import("@/lib/linkedin");
-    return await uploadImage(profile, image.bytes, image.contentType);
+    const { fetchArticlePreview } = await import("@/lib/preview");
+    const preview = await fetchArticlePreview(link.url);
+    if (!preview.fetched) return link;
+    return {
+      ...link,
+      title: preview.title ?? link.title,
+      description: preview.description,
+      imageUrl: preview.image,
+    };
   } catch {
-    return null;
+    return link;
   }
 }
 
@@ -86,20 +70,13 @@ export async function publishDraft(
   }
 
   // Loaded before posting: a post written against a story carries that story's
-  // link and, when we can get it, that story's own image.
+  // link, and the card carries that article's own image.
   const bundle = await repo.getBriefBundle(draft.briefId, userId);
-  const link = sourceLink(bundle?.discourseItem ?? null);
-
-  // Imagery is an enhancement and must never be able to stop a post going out.
-  // Any failure here degrades to the ARTICLE card, then to plain text.
-  const imageAsset = link ? await attachArticleImage(profile!, link.url) : null;
-
-  // With an image in the media slot, LinkedIn renders no link card, so the
-  // URL has to live in the body or the source becomes unreachable.
-  const body = imageAsset && link ? `${draft.body}\n\nvia ${link.url}` : draft.body;
+  const bare = sourceLink(bundle?.discourseItem ?? null);
+  const link = bare ? await enrichLink(bare) : null;
 
   try {
-    const postId = await postToLinkedIn(profile!, body, link, imageAsset);
+    const postId = await postToLinkedIn(profile!, draft.body, link);
     await repo.updateDraft(draftId, userId, { status: "posted" });
     if (bundle?.brief.insightId) {
       await repo.updateInsightStatus(bundle.brief.insightId, userId, "posted");

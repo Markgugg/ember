@@ -149,10 +149,10 @@ export function StoryPreviewPane({ storyId }: { storyId: string }) {
             </a>
             <p className="mt-1.5 text-[10.5px] leading-relaxed text-ink-3">
               {article.fetched && article.image
-                ? "Your post will carry this image, with the link in the text."
+                ? "Your post carries this card: image, headline and link."
                 : article.fetched
-                  ? "No image on this page, so your post will carry a link card."
-                  : "This site blocks preview requests. LinkedIn's crawler may too, in which case the card comes out plain."}
+                  ? "No image on this page, so the card carries no picture."
+                  : "This site blocks preview requests, so the card may come out plain."}
             </p>
           </div>
         ) : (

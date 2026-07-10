@@ -203,54 +203,12 @@ function safeDomain(url: string): string {
   }
 }
 
-/** What LinkedIn's own crawler sends. Cloudflare decides whether to serve it. */
-const LINKEDIN_BOT_UA =
-  "LinkedInBot/1.0 (compatible; Mozilla/5.0; Jakarta Commons-HttpClient/3.1 +http://www.linkedin.com)";
-
-const crawlCache = ((globalThis as typeof globalThis & {
-  __crawlCache?: Map<string, { at: number; value: boolean }>;
-}).__crawlCache ??= new Map());
-
 /**
- * Can LinkedIn build a rich card from this URL on its own?
- *
- * This decides the shape of the post, and it is the difference between a
- * picture with a title and domain under it, and a bare grey box. LinkedIn
- * renders the image into its own ARTICLE card when it can crawl the page; when
- * Cloudflare 403s LinkedInBot, the card comes out empty and we upload the
- * image ourselves instead.
- *
- * We probe with LinkedIn's user agent from our own IP. Cloudflare may
- * allowlist the real crawler by address, so a `false` here can be pessimistic:
- * we'd upload an image LinkedIn could have fetched. That failure is safe (the
- * post still has a picture). The opposite is the one to avoid, and it's rarer.
+ * Probing whether LinkedIn's crawler can read a page used to decide the post's
+ * shape. It was removed because it lied: anthropic.com serves og:image to
+ * LinkedInBot from our IP, and LinkedIn still produced an imageless card. We
+ * supply the thumbnail ourselves now, so the crawler's opinion doesn't matter.
  */
-export async function linkedinCanRenderCard(rawUrl: string): Promise<boolean> {
-  const cached = crawlCache.get(rawUrl);
-  if (cached && Date.now() - cached.at < TTL_MS) return cached.value;
-
-  const url = await isSafeUrl(rawUrl);
-  if (!url) return false;
-
-  let value = false;
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": LINKEDIN_BOT_UA, Accept: "text/html" },
-      redirect: "follow",
-      signal: AbortSignal.timeout(6000),
-    });
-    if (res.ok && (res.headers.get("content-type") ?? "").includes("html")) {
-      const html = (await res.text()).slice(0, MAX_BYTES);
-      // A card without an image is the flat box we're trying to avoid.
-      value = Boolean(meta(html, ogPatterns("og:image")));
-    }
-  } catch {
-    value = false;
-  }
-
-  crawlCache.set(rawUrl, { at: Date.now(), value });
-  return value;
-}
 
 /** LinkedIn rejects anything larger; we also refuse to hold it in memory. */
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024;

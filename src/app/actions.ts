@@ -316,12 +316,11 @@ export async function loadBriefDraft(briefId: string): Promise<{
   rationale: string;
   sourceNote: string;
   /**
-   * The article the post cites, and the shape it will take.
-   *  "card"  — LinkedIn crawls it and renders image + title + domain together
-   *  "image" — its crawler is blocked, so we upload the image, link in text
-   *  "plain" — no image anywhere, a bare link card
+   * The article the post cites, and the card it will carry.
+   *  "card"  — image, headline, domain and link in one clickable unit
+   *  "plain" — the article has no image, so the card has no picture
    */
-  link: { url: string; domain: string; shape: "card" | "image" | "plain" } | null;
+  link: { url: string; domain: string; shape: "card" | "plain" } | null;
 } | null> {
   const repo = await getRepo();
   const userId = await getUserId();
@@ -340,18 +339,12 @@ export async function loadBriefDraft(briefId: string): Promise<{
   const attached = sourceLink(bundle.discourseItem);
   const source = bundle.discourseItem?.sources?.[0];
 
-  // Both are cached from the story-preview pane, so this is usually free.
-  let shape: "card" | "image" | "plain" = "plain";
+  // Cached from the story-preview pane, so this is usually free.
+  let shape: "card" | "plain" = "plain";
   if (attached) {
-    const { fetchArticlePreview, linkedinCanRenderCard } = await import(
-      "@/lib/preview"
-    );
-    if (await linkedinCanRenderCard(attached.url)) {
-      shape = "card";
-    } else {
-      const preview = await fetchArticlePreview(attached.url);
-      shape = preview.fetched && preview.image ? "image" : "plain";
-    }
+    const { fetchArticlePreview } = await import("@/lib/preview");
+    const preview = await fetchArticlePreview(attached.url);
+    shape = preview.fetched && preview.image ? "card" : "plain";
   }
 
   return {

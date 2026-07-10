@@ -60,7 +60,7 @@ export function ComposerSheet() {
     angle: string;
     rationale: string;
     sourceNote: string;
-    link: { url: string; domain: string; shape: "card" | "image" | "plain" } | null;
+    link: { url: string; domain: string; shape: "card" | "plain" } | null;
   } | null>(null);
   const [refusedBriefId, setRefusedBriefId] = useState<string | null>(null);
   // Filled after the draft arrives, never during render: `new Date()` on the
@@ -517,30 +517,20 @@ export function ComposerSheet() {
                   >
                     <LinkIcon size={13} className="shrink-0 text-accent" aria-hidden />
                     <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-2">
-                      {draft.link.shape === "card" && (
+                      {draft.link.shape === "card" ? (
                         <>
-                          LinkedIn will card{" "}
+                          Card:{" "}
                           <span className="font-semibold text-ink">
                             {draft.link.domain}
                           </span>
-                          : image, headline, and link together.
+                          &apos;s image, headline and link, together.
                         </>
-                      )}
-                      {draft.link.shape === "image" && (
+                      ) : (
                         <>
                           <span className="font-semibold text-ink">
                             {draft.link.domain}
                           </span>{" "}
-                          blocks LinkedIn&apos;s crawler, so we attach its image
-                          and put the link in the text.
-                        </>
-                      )}
-                      {draft.link.shape === "plain" && (
-                        <>
-                          <span className="font-semibold text-ink">
-                            {draft.link.domain}
-                          </span>{" "}
-                          has no image, so this posts as a plain link card.
+                          has no image, so the card carries no picture.
                         </>
                       )}
                     </span>
