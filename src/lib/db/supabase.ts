@@ -44,6 +44,8 @@ function parseVector(v: unknown): number[] {
 
 const toProfile = (r: any): Profile => ({
   id: r.id,
+  displayName: r.display_name,
+  headline: r.headline,
   audience: r.audience,
   linkedinUrl: r.linkedin_url,
   voiceSamples: r.voice_samples ?? [],
@@ -163,6 +165,8 @@ export const supabaseRepo: Repo = {
       .from("profiles")
       .upsert({
         id: p.id,
+        display_name: p.displayName,
+        headline: p.headline,
         audience: p.audience,
         linkedin_url: p.linkedinUrl,
         voice_samples: p.voiceSamples,

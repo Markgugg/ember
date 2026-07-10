@@ -16,6 +16,9 @@ export type DraftStatus = "suggested" | "edited" | "copied" | "posted";
 
 export interface Profile {
   id: string;
+  displayName: string | null;
+  /** One-line "who you are" — used in prompts and the post preview header. */
+  headline: string | null;
   audience: string | null;
   linkedinUrl: string | null;
   voiceSamples: string[];

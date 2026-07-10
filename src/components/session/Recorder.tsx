@@ -120,7 +120,7 @@ export function Recorder({ onTranscript, onUnavailable, disabled }: RecorderProp
             type="button"
             onClick={stop}
             aria-label="Stop recording"
-            className="flex size-12 items-center justify-center rounded-full bg-ember text-[#131110] transition-opacity duration-[120ms] hover:opacity-90"
+            className="flex size-12 items-center justify-center rounded-full bg-ember text-white shadow-sm transition-colors duration-[120ms] hover:bg-ember-hover"
           >
             <Square size={16} fill="currentColor" />
           </button>

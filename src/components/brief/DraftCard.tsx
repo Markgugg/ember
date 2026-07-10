@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ExternalLink } from "lucide-react";
-import { Card } from "@/components/ui/Card";
+import { ExternalLink, Globe } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Rationale } from "@/components/ui/AiVoice";
 import { useToast } from "@/components/ui/Toast";
@@ -17,16 +16,22 @@ export interface DraftData {
   status: string;
 }
 
+export interface PostAuthor {
+  name: string;
+  headline: string | null;
+}
+
 /**
- * F10/F11 — the post as the interface. Body is editable in place (autosave
- * on blur), copy morphs the button and silently assumes posted, and the one
- * AI affordance is "Not my voice".
+ * The draft rendered as a LinkedIn post preview — you're editing the thing
+ * itself, framed exactly as your audience will meet it. Copy assumes posted.
  */
 export function DraftCard({
   draft,
+  author,
   copySignal,
 }: {
   draft: DraftData;
+  author: PostAuthor;
   copySignal: number;
 }) {
   const [body, setBody] = useState(draft.body);
@@ -43,7 +48,6 @@ export function DraftCard({
     setTimeout(() => setCopied(false), 2500);
   };
 
-  // keyboard C — only the primary card listens
   const copySeen = useRef(copySignal);
   useEffect(() => {
     if (draft.isPrimary && copySignal > copySeen.current) {
@@ -58,7 +62,10 @@ export function DraftCard({
     if (current !== body) {
       setBody(current);
       void saveDraftEdit(draft.id, current).catch(() =>
-        toast({ message: "Couldn't save your edit — it's still on screen.", tone: "caution" }),
+        toast({
+          message: "Couldn't save your edit — it's still on screen.",
+          tone: "caution",
+        }),
       );
     }
   };
@@ -76,59 +83,81 @@ export function DraftCard({
     }
   };
 
+  const initial = (author.name || "Y")[0].toUpperCase();
+
   return (
-    <Card className="p-5">
-      <div className="mb-3 flex items-start justify-between gap-4">
-        <div>
-          <span className="text-sm font-semibold capitalize text-ink">
-            {draft.angle}
-          </span>
-          <Rationale className="mt-0.5">{draft.rationale}</Rationale>
-        </div>
+    <div>
+      {/* angle + reason live above the frame — strategy talk stays out of the post */}
+      <div className="mb-2 flex items-baseline gap-2 px-1">
+        <span className="text-sm font-semibold capitalize text-ink">
+          {draft.angle}
+        </span>
+        <Rationale>{draft.rationale}</Rationale>
       </div>
 
-      <div
-        ref={bodyRef}
-        contentEditable
-        suppressContentEditableWarning
-        onBlur={onBlur}
-        role="textbox"
-        aria-multiline="true"
-        aria-label={`${draft.angle} draft — editable`}
-        className="whitespace-pre-wrap rounded-md text-base leading-relaxed text-ink outline-none focus:ring-0"
-      >
-        {body}
-      </div>
-
-      <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
-        <Button
-          variant="ghost"
-          onClick={() => void rewrite()}
-          disabled={rewriting}
-        >
-          {rewriting ? (
-            <>
-              <span className="size-1.5 animate-ember-breathe rounded-full bg-ember" />
-              Rewriting…
-            </>
-          ) : (
-            "Not my voice"
-          )}
-        </Button>
-        <div className="flex items-center gap-3">
-          <a
-            href="https://www.linkedin.com/feed/?shareActive=true"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-ink-3 transition-colors duration-[120ms] hover:text-ink-2"
+      {/* LinkedIn post preview frame */}
+      <div className="card-surface overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pb-3 pt-4">
+          <span
+            aria-hidden
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-ember text-base font-semibold text-white"
           >
-            open LinkedIn <ExternalLink size={11} aria-hidden />
-          </a>
-          <Button onClick={() => void copy()}>
-            {copied ? "Copied" : "Copy post"}
+            {initial}
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink">{author.name}</p>
+            <p className="truncate text-xs text-ink-3">
+              {author.headline ?? "You"}
+            </p>
+            <p className="flex items-center gap-1 text-xs text-ink-3">
+              now · <Globe size={10} aria-hidden />
+            </p>
+          </div>
+        </div>
+
+        <div
+          ref={bodyRef}
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={onBlur}
+          role="textbox"
+          aria-multiline="true"
+          aria-label={`${draft.angle} draft — editable`}
+          className="whitespace-pre-wrap px-5 pb-4 text-[15px] leading-relaxed text-ink outline-none"
+        >
+          {body}
+        </div>
+
+        <div className="flex items-center justify-between border-t border-line bg-accent-softer px-4 py-3">
+          <Button
+            variant="ghost"
+            onClick={() => void rewrite()}
+            disabled={rewriting}
+          >
+            {rewriting ? (
+              <>
+                <span className="size-1.5 animate-ember-breathe rounded-full bg-ember" />
+                Rewriting…
+              </>
+            ) : (
+              "Not my voice"
+            )}
           </Button>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://www.linkedin.com/feed/?shareActive=true"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-ink-3 transition-colors duration-[120ms] hover:text-ink-2"
+            >
+              open LinkedIn <ExternalLink size={11} aria-hidden />
+            </a>
+            <Button onClick={() => void copy()}>
+              {copied ? "Copied" : "Copy post"}
+            </Button>
+          </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }

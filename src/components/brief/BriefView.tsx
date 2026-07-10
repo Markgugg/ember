@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { AiLine, Rationale } from "@/components/ui/AiVoice";
 import { SourceChip } from "@/components/ui/SourceChip";
-import { DraftCard, type DraftData } from "./DraftCard";
+import { DraftCard, type DraftData, type PostAuthor } from "./DraftCard";
 
 export interface BriefViewData {
   briefId: string;
   rationale: string | null;
   recommendation: string | null;
   insightQuote: string | null;
+  author: PostAuthor;
   discourse: {
     title: string;
     sources: { url: string; domain: string; ageHours: number; meta?: string }[];
@@ -76,7 +77,7 @@ export function BriefView({ data }: { data: BriefViewData }) {
       )}
 
       {/* 2 — the post */}
-      <DraftCard draft={primary} copySignal={copySignal} />
+      <DraftCard draft={primary} author={data.author} copySignal={copySignal} />
 
       {/* 3 — the recommendation */}
       {data.recommendation && (
@@ -99,7 +100,12 @@ export function BriefView({ data }: { data: BriefViewData }) {
           {showAlternates && (
             <div className="mt-6 flex flex-col gap-6">
               {alternates.map((d) => (
-                <DraftCard key={d.id} draft={d} copySignal={0} />
+                <DraftCard
+                  key={d.id}
+                  draft={d}
+                  author={data.author}
+                  copySignal={0}
+                />
               ))}
             </div>
           )}

@@ -21,12 +21,18 @@ export default async function BriefPage({
     return <RefusalView refusal={bundle.brief.refusal} />;
   }
 
+  const profile = await repo.getProfile(userId);
+
   // Strip embeddings before crossing to the client — 1536 floats of dead weight.
   const data: BriefViewData = {
     briefId: bundle.brief.id,
     rationale: bundle.brief.intersectionRationale,
     recommendation: bundle.brief.recommendation,
     insightQuote: bundle.insight?.quote ?? null,
+    author: {
+      name: profile?.displayName ?? "You",
+      headline: profile?.headline ?? null,
+    },
     discourse: bundle.discourseItem
       ? {
           title: bundle.discourseItem.title,

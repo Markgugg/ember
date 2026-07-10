@@ -14,25 +14,52 @@ export async function loadProfile(): Promise<Profile | null> {
 }
 
 const profileSchema = z.object({
-  audience: z.string().max(200),
-  voiceSamples: z.array(z.string().max(5000)).max(3),
+  displayName: z.string().max(100).optional(),
+  headline: z.string().max(300).optional(),
+  audience: z.string().max(200).optional(),
+  linkedinUrl: z.string().max(300).optional(),
+  voiceSamples: z.array(z.string().max(5000)).max(3).optional(),
 });
 
-export async function saveProfile(input: {
-  audience: string;
-  voiceSamples: string[];
-}): Promise<Profile> {
+export async function saveProfile(
+  input: z.infer<typeof profileSchema>,
+): Promise<Profile> {
   const parsed = profileSchema.parse(input);
   const repo = await getRepo();
   const userId = await getUserId();
   const existing = await repo.getProfile(userId);
+  const or = <T,>(next: T | undefined, prev: T | null): T | null =>
+    next === undefined ? prev : next || null;
   return repo.upsertProfile({
     id: userId,
-    audience: parsed.audience.trim() || null,
-    linkedinUrl: existing?.linkedinUrl ?? null,
-    voiceSamples: parsed.voiceSamples.map((s) => s.trim()).filter(Boolean),
+    displayName: or(parsed.displayName?.trim(), existing?.displayName ?? null),
+    headline: or(parsed.headline?.trim(), existing?.headline ?? null),
+    audience: or(parsed.audience?.trim(), existing?.audience ?? null),
+    linkedinUrl: or(parsed.linkedinUrl?.trim(), existing?.linkedinUrl ?? null),
+    voiceSamples:
+      parsed.voiceSamples?.map((s) => s.trim()).filter(Boolean) ??
+      existing?.voiceSamples ??
+      [],
     onboardedAt: existing?.onboardedAt ?? new Date().toISOString(),
   });
+}
+
+/* ── onboarding: live discourse preview (the "while you wait" step) ── */
+
+export async function loadPulsePreview(): Promise<
+  { title: string; meta: string; live: boolean }[]
+> {
+  const { getOrSeedSnapshot } = await import("@/lib/discourse");
+  const repo = await getRepo();
+  const { items, live } = await getOrSeedSnapshot(repo);
+  return [...items]
+    .sort((a, b) => b.velocity - a.velocity)
+    .slice(0, 3)
+    .map((i) => ({
+      title: i.title,
+      meta: i.sources[0]?.meta ?? i.sources[0]?.domain ?? "live",
+      live,
+    }));
 }
 
 /* ── drafts (F10/F11) ─────────────────────────────────────────────── */

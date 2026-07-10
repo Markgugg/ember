@@ -14,9 +14,11 @@ const base =
   "disabled:pointer-events-none disabled:opacity-40 select-none";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-ember text-[#131110] hover:opacity-90 active:opacity-80",
-  ghost: "text-ink-2 hover:bg-raised hover:text-ink active:bg-overlay",
-  danger: "text-danger hover:bg-raised active:bg-overlay",
+  primary:
+    "bg-ember text-white shadow-sm hover:bg-ember-hover active:opacity-90",
+  ghost:
+    "text-ink-2 border border-transparent hover:border-line hover:bg-accent-softer hover:text-ink active:bg-accent-soft",
+  danger: "text-danger hover:bg-accent-softer active:bg-accent-soft",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(

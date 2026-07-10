@@ -39,7 +39,7 @@ export function RefusalView({
               ? `/?topic=${encodeURIComponent(refusal.redirectTopic)}`
               : "/"
           }
-          className="inline-flex h-10 items-center rounded-md bg-ember px-4 text-sm font-medium text-[#131110] transition-opacity duration-[120ms] hover:opacity-90"
+          className="inline-flex h-10 items-center rounded-md bg-ember px-4 text-sm font-medium text-white shadow-sm transition-colors duration-[120ms] hover:bg-ember-hover"
         >
           Talk for two minutes
         </Link>
