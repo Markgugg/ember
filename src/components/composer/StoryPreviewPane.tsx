@@ -148,9 +148,11 @@ export function StoryPreviewPane({ storyId }: { storyId: string }) {
               </span>
             </a>
             <p className="mt-1.5 text-[10.5px] leading-relaxed text-ink-3">
-              {article.fetched
-                ? "This is the card LinkedIn will attach to your post."
-                : "LinkedIn fetches the card itself when you post, so it may still show one."}
+              {article.fetched && article.image
+                ? "Your post will carry this image, with the link in the text."
+                : article.fetched
+                  ? "No image on this page, so your post will carry a link card."
+                  : "This site blocks preview requests. LinkedIn's crawler may too, in which case the card comes out plain."}
             </p>
           </div>
         ) : (

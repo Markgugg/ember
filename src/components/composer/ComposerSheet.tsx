@@ -495,11 +495,22 @@ export function ComposerSheet() {
                   >
                     <LinkIcon size={13} className="shrink-0 text-accent" aria-hidden />
                     <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-2">
-                      LinkedIn will attach{" "}
-                      <span className="font-semibold text-ink">
-                        {draft.link.domain}
-                      </span>{" "}
-                      as a preview card.
+                      {draft.link.hasImage ? (
+                        <>
+                          Posts with{" "}
+                          <span className="font-semibold text-ink">
+                            {draft.link.domain}
+                          </span>
+                          &apos;s image, link in the text.
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-semibold text-ink">
+                            {draft.link.domain}
+                          </span>{" "}
+                          has no image, so this posts as a link card.
+                        </>
+                      )}
                     </span>
                   </a>
                 )}

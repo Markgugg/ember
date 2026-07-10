@@ -202,3 +202,47 @@ function safeDomain(url: string): string {
     return "link";
   }
 }
+
+/** LinkedIn rejects anything larger; we also refuse to hold it in memory. */
+const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
+
+export interface FetchedImage {
+  bytes: Buffer;
+  contentType: string;
+}
+
+/**
+ * Download an article's Open Graph image so it can be uploaded to LinkedIn.
+ *
+ * Same SSRF guard as the page fetch: an og:image URL is every bit as
+ * attacker-influenced as the page that declared it, and it is the more
+ * tempting target because the response never reaches the user's eyes.
+ */
+export async function fetchImageBytes(
+  rawUrl: string,
+): Promise<FetchedImage | null> {
+  const url = await isSafeUrl(rawUrl);
+  if (!url) return null;
+
+  try {
+    const res = await fetch(url, {
+      headers: { ...BROWSER_HEADERS, Accept: "image/*" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+
+    const contentType = (res.headers.get("content-type") ?? "").split(";")[0].trim();
+    if (!/^image\/(jpeg|png|webp|gif)$/i.test(contentType)) return null;
+
+    const declared = Number(res.headers.get("content-length") ?? 0);
+    if (declared > MAX_IMAGE_BYTES) return null;
+
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES) return null;
+
+    return { bytes, contentType };
+  } catch {
+    return null;
+  }
+}

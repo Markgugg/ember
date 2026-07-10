@@ -315,8 +315,8 @@ export async function loadBriefDraft(briefId: string): Promise<{
   angle: string;
   rationale: string;
   sourceNote: string;
-  /** The article LinkedIn will render as a preview card, if any. */
-  link: { url: string; domain: string } | null;
+  /** The article the post cites, and whether we can carry its image. */
+  link: { url: string; domain: string; hasImage: boolean } | null;
 } | null> {
   const repo = await getRepo();
   const userId = await getUserId();
@@ -335,6 +335,14 @@ export async function loadBriefDraft(briefId: string): Promise<{
   const attached = sourceLink(bundle.discourseItem);
   const source = bundle.discourseItem?.sources?.[0];
 
+  // Cached from the story-preview pane, so this is usually free.
+  let hasImage = false;
+  if (attached) {
+    const { fetchArticlePreview } = await import("@/lib/preview");
+    const preview = await fetchArticlePreview(attached.url);
+    hasImage = Boolean(preview.fetched && preview.image);
+  }
+
   return {
     draftId: primary.id,
     body: primary.body,
@@ -342,7 +350,7 @@ export async function loadBriefDraft(briefId: string): Promise<{
     rationale: primary.rationale,
     sourceNote: parts.join(" + "),
     link: attached
-      ? { url: attached.url, domain: source?.domain ?? "link" }
+      ? { url: attached.url, domain: source?.domain ?? "link", hasImage }
       : null,
   };
 }

@@ -105,26 +105,129 @@ export interface PostLink {
 }
 
 /**
- * Publish a text post as the member. Returns the LinkedIn post id.
+ * Upload an image and get back its asset URN.
  *
- * When a link is supplied the share is an ARTICLE rather than plain text, and
- * LinkedIn builds the preview card itself by fetching the page's Open Graph
- * tags. That's where a post gets its image: the source's own artwork, chosen
- * by whoever published it. Nothing is uploaded and no stock photo is invented.
+ * Needed because LinkedIn builds a link card by crawling the URL itself, and
+ * Cloudflare-fronted publishers (openai.com among them) return 403 to
+ * LinkedInBot. The card then renders as a bare title-and-domain box with no
+ * image. Supplying the image directly is the only way to control what the
+ * post looks like.
+ *
+ * Two steps, per the Assets API: register the upload to get a one-time URL,
+ * then PUT the bytes to it.
+ */
+export async function uploadImage(
+  profile: Profile,
+  bytes: Buffer,
+  contentType: string,
+): Promise<string> {
+  if (!linkedinReady(profile)) {
+    throw new Error("linkedin not connected or token expired");
+  }
+
+  const registerRes = await fetch(
+    "https://api.linkedin.com/v2/assets?action=registerUpload",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${profile.linkedinAccessToken}`,
+        "Content-Type": "application/json",
+        "X-Restli-Protocol-Version": "2.0.0",
+      },
+      body: JSON.stringify({
+        registerUploadRequest: {
+          recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
+          owner: profile.linkedinUrn,
+          serviceRelationships: [
+            {
+              relationshipType: "OWNER",
+              identifier: "urn:li:userGeneratedContent",
+            },
+          ],
+        },
+      }),
+      signal: AbortSignal.timeout(15_000),
+    },
+  );
+  if (!registerRes.ok) {
+    const body = await registerRes.text().catch(() => "");
+    throw new Error(
+      `linkedin registerUpload failed (${registerRes.status}): ${body.slice(0, 160)}`,
+    );
+  }
+
+  const registered = (await registerRes.json()) as {
+    value?: {
+      asset?: string;
+      uploadMechanism?: Record<
+        string,
+        { uploadUrl?: string }
+      >;
+    };
+  };
+  const asset = registered.value?.asset;
+  const mechanism =
+    registered.value?.uploadMechanism?.[
+      "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
+    ];
+  const uploadUrl = mechanism?.uploadUrl;
+  if (!asset || !uploadUrl) throw new Error("linkedin registerUpload: no upload url");
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${profile.linkedinAccessToken}`,
+      "Content-Type": contentType,
+    },
+    body: new Uint8Array(bytes),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!uploadRes.ok) {
+    throw new Error(`linkedin image upload failed (${uploadRes.status})`);
+  }
+
+  return asset;
+}
+
+/**
+ * Publish a post as the member. Returns the LinkedIn post id.
+ *
+ * Three shapes, in descending order of what we can control:
+ *
+ *  IMAGE   — an asset we uploaded. The only way to guarantee a picture, since
+ *            LinkedIn's crawler is 403'd by Cloudflare-fronted publishers. The
+ *            link lives in the body text, because the media slot is taken.
+ *  ARTICLE — LinkedIn crawls the URL and builds the card itself. Free, but it
+ *            renders as a bare box whenever the crawl fails.
+ *  NONE    — plain text.
+ *
+ * Nothing here invents an image. The picture is the article's own, or absent.
  */
 export async function postToLinkedIn(
   profile: Profile,
   text: string,
   link?: PostLink | null,
+  imageAsset?: string | null,
 ): Promise<string> {
   if (!linkedinReady(profile)) {
     throw new Error("linkedin not connected or token expired");
   }
+
+  const category = imageAsset ? "IMAGE" : link ? "ARTICLE" : "NONE";
   const shareContent: Record<string, unknown> = {
     shareCommentary: { text },
-    shareMediaCategory: link ? "ARTICLE" : "NONE",
+    shareMediaCategory: category,
   };
-  if (link) {
+
+  if (imageAsset) {
+    shareContent.media = [
+      {
+        status: "READY",
+        media: imageAsset,
+        ...(link?.title ? { title: { text: link.title.slice(0, 200) } } : {}),
+      },
+    ];
+  } else if (link) {
     shareContent.media = [
       {
         status: "READY",
