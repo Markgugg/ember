@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Check, FileUp, X } from "lucide-react";
+import { Check, FileUp, Link2 as LinkIcon, X } from "lucide-react";
 import { useSessionStream } from "@/components/session/useSessionStream";
 import { Recorder } from "@/components/session/Recorder";
 import { useToast } from "@/components/ui/Toast";
@@ -59,6 +59,7 @@ export function ComposerSheet() {
     angle: string;
     rationale: string;
     sourceNote: string;
+    link: { url: string; domain: string } | null;
   } | null>(null);
   const [refusedBriefId, setRefusedBriefId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -478,6 +479,23 @@ export function ComposerSheet() {
 
             {draft && (
               <>
+                {draft.link && (
+                  <a
+                    href={draft.link.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="flex shrink-0 items-center gap-2 rounded-[12px] border border-[rgb(27_36_48/0.1)] bg-[rgb(255_255_255/0.7)] px-3 py-2 transition-colors hover:border-accent"
+                  >
+                    <LinkIcon size={13} className="shrink-0 text-accent" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-2">
+                      LinkedIn will attach{" "}
+                      <span className="font-semibold text-ink">
+                        {draft.link.domain}
+                      </span>{" "}
+                      as a preview card.
+                    </span>
+                  </a>
+                )}
                 <p className="text-[10.5px] leading-relaxed text-ink-3">
                   Sources: {draft.sourceNote}
                 </p>

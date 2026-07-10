@@ -61,7 +61,14 @@ export interface Insight {
 }
 
 export interface DiscourseSource {
+  /** Where the conversation is happening (the HN thread). */
   url: string;
+  /**
+   * The thing being discussed: the article, paper, or repo. Absent when the
+   * story is a self-post with no outbound link. This is what gets attached to
+   * a LinkedIn post, because it's what carries a preview image.
+   */
+  articleUrl?: string | null;
   domain: string;
   ageHours: number;
   meta?: string;

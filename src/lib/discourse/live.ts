@@ -75,7 +75,7 @@ const clusterSchema = z.object({
     .max(MAX_DISCOURSE_ITEMS),
 });
 
-const CLUSTER_SYSTEM = `You are the discourse mapper of ember. You receive today's AI-related Hacker News stories. Cluster them into 5-9 discourse items, the conversations people are actually having, not headlines. For each: a title phrased as the conversation ("Are agents ready for production?" not "Company ships agent"), a 1-2 sentence summary of what's being argued, and where a genuine disagreement exists, the two stances (stanceA vs stanceB), null for both when the story isn't divisive. Reference source stories by index. Skip stories that are pure product announcements with nothing arguable.`;
+const CLUSTER_SYSTEM = `You are the discourse mapper of ember. You receive today's AI-related Hacker News stories. Cluster them into 5-9 discourse items, the conversations people are actually having, not headlines. For each: a title phrased as the conversation ("Are agents ready for production?" not "Company ships agent"), a 1-2 sentence summary of what's being argued, and where a genuine disagreement exists, the two stances (stanceA vs stanceB), null for both when the story isn't divisive. Reference source stories by index. Skip stories that are pure product announcements with nothing arguable. Never use em dashes, en dashes, or semicolons in a title or summary; write plain sentences instead.`;
 
 /** Build DiscourseItems from live stories — Haiku clustering or heuristic mapping. */
 export async function buildLiveItems(
@@ -90,6 +90,9 @@ export async function buildLiveItems(
   );
   const toSource = (s: HNStory) => ({
     url: `https://news.ycombinator.com/item?id=${s.objectID}`,
+    // Keep the underlying article, not just its domain: it's the only link
+    // worth attaching to a post, and the only one with a preview image.
+    articleUrl: s.url ?? null,
     domain: s.url ? safeDomain(s.url) : "news.ycombinator.com",
     ageHours: Math.max(0, (now - s.created_at_i) / 3600),
     meta: `${s.num_comments} comments`,

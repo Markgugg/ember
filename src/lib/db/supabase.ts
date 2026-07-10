@@ -372,8 +372,10 @@ export const supabaseRepo: Repo = {
       .select();
     throwOn(error, "insertSnapshot");
 
-    // Prune: keep only the newest two snapshots. Briefs reference discourse
-    // items with ON DELETE SET NULL, so old briefs survive losing their story.
+    // Prune: keep only the newest two snapshots, EXCEPT any story a brief
+    // still points at. A draft scheduled for tomorrow publishes with its
+    // source link attached, and the column is ON DELETE SET NULL, so pruning
+    // its story would quietly strip the link off the post that goes out.
     const { data: recent } = await admin()
       .from("discourse_items")
       .select("snapshot_at")
@@ -381,10 +383,21 @@ export const supabaseRepo: Repo = {
       .limit(400);
     const keep = [...new Set((recent ?? []).map((r) => r.snapshot_at))].slice(0, 2);
     if (keep.length === 2) {
-      const { error: pruneError } = await admin()
-        .from("discourse_items")
-        .delete()
-        .lt("snapshot_at", keep[1]);
+      const { data: referenced } = await admin()
+        .from("briefs")
+        .select("discourse_item_id")
+        .not("discourse_item_id", "is", null);
+      const cited = [
+        ...new Set(
+          (referenced ?? [])
+            .map((r) => r.discourse_item_id as string | null)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+
+      let query = admin().from("discourse_items").delete().lt("snapshot_at", keep[1]);
+      if (cited.length > 0) query = query.not("id", "in", `(${cited.join(",")})`);
+      const { error: pruneError } = await query;
       throwOn(pruneError, "insertSnapshot.prune");
     }
 

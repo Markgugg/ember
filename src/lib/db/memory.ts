@@ -165,14 +165,24 @@ const rawMemoryRepo: Repo = {
   },
   async insertSnapshot(items) {
     const rows = items.map((i) => ({ ...i, id: randomUUID() }));
-    // keep only the two most recent snapshots
     const s = state();
     s.discourse.push(...rows);
+
+    // Keep the two most recent snapshots, plus any story a brief still cites.
+    // A draft scheduled for tomorrow attaches its source link when it posts,
+    // so dropping the story it was written against would strip that link.
     const snapshots = [...new Set(s.discourse.map((d) => d.snapshotAt))]
       .sort()
       .reverse()
       .slice(0, 2);
-    s.discourse = s.discourse.filter((d) => snapshots.includes(d.snapshotAt));
+    const cited = new Set(
+      [...s.briefs.values()]
+        .map((b) => b.discourseItemId)
+        .filter((id): id is string => Boolean(id)),
+    );
+    s.discourse = s.discourse.filter(
+      (d) => snapshots.includes(d.snapshotAt) || cited.has(d.id),
+    );
     return rows;
   },
 

@@ -98,14 +98,42 @@ export function linkedinReady(profile: Profile | null): boolean {
   );
 }
 
-/** Publish a text post as the member. Returns the LinkedIn post id. */
+/** The source a post was written against, attached as a link preview. */
+export interface PostLink {
+  url: string;
+  title?: string | null;
+}
+
+/**
+ * Publish a text post as the member. Returns the LinkedIn post id.
+ *
+ * When a link is supplied the share is an ARTICLE rather than plain text, and
+ * LinkedIn builds the preview card itself by fetching the page's Open Graph
+ * tags. That's where a post gets its image: the source's own artwork, chosen
+ * by whoever published it. Nothing is uploaded and no stock photo is invented.
+ */
 export async function postToLinkedIn(
   profile: Profile,
   text: string,
+  link?: PostLink | null,
 ): Promise<string> {
   if (!linkedinReady(profile)) {
     throw new Error("linkedin not connected or token expired");
   }
+  const shareContent: Record<string, unknown> = {
+    shareCommentary: { text },
+    shareMediaCategory: link ? "ARTICLE" : "NONE",
+  };
+  if (link) {
+    shareContent.media = [
+      {
+        status: "READY",
+        originalUrl: link.url,
+        ...(link.title ? { title: { text: link.title.slice(0, 200) } } : {}),
+      },
+    ];
+  }
+
   const res = await fetch("https://api.linkedin.com/v2/ugcPosts", {
     method: "POST",
     headers: {
@@ -116,12 +144,7 @@ export async function postToLinkedIn(
     body: JSON.stringify({
       author: profile.linkedinUrn,
       lifecycleState: "PUBLISHED",
-      specificContent: {
-        "com.linkedin.ugc.ShareContent": {
-          shareCommentary: { text },
-          shareMediaCategory: "NONE",
-        },
-      },
+      specificContent: { "com.linkedin.ugc.ShareContent": shareContent },
       visibility: {
         "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
       },

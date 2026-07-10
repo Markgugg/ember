@@ -37,6 +37,7 @@ export async function POST(req: Request) {
 
   const repo = await getRepo();
   const bundle = briefId ? await repo.getBriefBundle(briefId, userId) : null;
+  const { sourceLink } = await import("@/lib/publish");
 
   return NextResponse.json({
     stages,
@@ -44,6 +45,7 @@ export async function POST(req: Request) {
     refusal: bundle?.brief.refusal ?? null,
     intersectionScore: bundle?.brief.intersectionScore ?? null,
     story: bundle?.discourseItem?.title ?? null,
+    attachedLink: sourceLink(bundle?.discourseItem ?? null),
     drafts:
       bundle?.drafts.map((d) => ({
         angle: d.angle,

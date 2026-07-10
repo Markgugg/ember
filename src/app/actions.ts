@@ -260,6 +260,8 @@ export async function loadBriefDraft(briefId: string): Promise<{
   angle: string;
   rationale: string;
   sourceNote: string;
+  /** The article LinkedIn will render as a preview card, if any. */
+  link: { url: string; domain: string } | null;
 } | null> {
   const repo = await getRepo();
   const userId = await getUserId();
@@ -273,12 +275,20 @@ export async function loadBriefDraft(briefId: string): Promise<{
       : null,
     bundle.insight ? `your words: “${truncate(bundle.insight.quote, 70)}”` : null,
   ].filter(Boolean);
+
+  const { sourceLink } = await import("@/lib/publish");
+  const attached = sourceLink(bundle.discourseItem);
+  const source = bundle.discourseItem?.sources?.[0];
+
   return {
     draftId: primary.id,
     body: primary.body,
     angle: primary.angle,
     rationale: primary.rationale,
     sourceNote: parts.join(" + "),
+    link: attached
+      ? { url: attached.url, domain: source?.domain ?? "link" }
+      : null,
   };
 }
 

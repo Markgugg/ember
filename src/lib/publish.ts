@@ -1,11 +1,29 @@
 import "server-only";
 import { getRepo } from "@/lib/db";
-import { linkedinReady, postToLinkedIn } from "@/lib/linkedin";
+import { linkedinReady, postToLinkedIn, type PostLink } from "@/lib/linkedin";
+import { sanitizePunctuation } from "@/lib/ai/style";
 import type { Repo } from "@/lib/db";
+import type { DiscourseItem } from "@/lib/types";
 
 export type PublishResult =
   | { ok: true; postId: string }
   | { ok: false; error: string };
+
+/**
+ * The link a post should carry. Prefer the article being discussed, since it's
+ * the thing with a preview image and the thing the reader wants. Fall back to
+ * the discussion thread when the story was a self-post with no outbound link.
+ * Returns null when the post was written from a transcript alone, because
+ * there is then nothing honest to link to.
+ */
+export function sourceLink(item: DiscourseItem | null): PostLink | null {
+  const source = item?.sources?.[0];
+  if (!source) return null;
+  const url = source.articleUrl ?? source.url;
+  if (!url) return null;
+  // The card headline is as visible as the post, so it obeys the same rules.
+  return { url, title: item ? sanitizePunctuation(item.title) : null };
+}
 
 /**
  * Publish one draft to the owner's LinkedIn and mark everything that follows
@@ -30,10 +48,17 @@ export async function publishDraft(
     };
   }
 
+  // Loaded before posting: a post written against a story carries that story's
+  // link, which is what gives the post its preview card.
+  const bundle = await repo.getBriefBundle(draft.briefId, userId);
+
   try {
-    const postId = await postToLinkedIn(profile!, draft.body);
+    const postId = await postToLinkedIn(
+      profile!,
+      draft.body,
+      sourceLink(bundle?.discourseItem ?? null),
+    );
     await repo.updateDraft(draftId, userId, { status: "posted" });
-    const bundle = await repo.getBriefBundle(draft.briefId, userId);
     if (bundle?.brief.insightId) {
       await repo.updateInsightStatus(bundle.brief.insightId, userId, "posted");
       await repo.updateBriefStatus(draft.briefId, userId, "consumed");
