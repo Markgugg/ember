@@ -5,8 +5,17 @@
 import { cosineSimilarity } from "@/lib/vector";
 import type { DiscourseItem, Insight } from "@/lib/types";
 
-/** A judged pair must clear this to produce a post. Below it, ember refuses. */
+/**
+ * A judged pair must clear this to produce a post. Below it, ember refuses.
+ *
+ * Two bars, because the question differs. When Current picks the story itself
+ * it is answering "is anything you hold worth saying today?" and should be
+ * hard to convince. When you pinned a story you already answered that, so
+ * refusing at the same bar mostly means telling you no to your own request.
+ * The judge still refuses a genuinely unrelated pin; it's just less precious.
+ */
 export const REFUSAL_THRESHOLD = 0.6;
+export const PINNED_REFUSAL_THRESHOLD = 0.42;
 
 /** Max candidate pairs sent to the judge — the prefilter's hard cap. */
 export const JUDGE_CAP = 12;

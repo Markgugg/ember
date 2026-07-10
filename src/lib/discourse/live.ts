@@ -54,8 +54,11 @@ export async function fetchAiStories(): Promise<HNStory[]> {
     .sort(
       (a, b) => b.points + b.num_comments * 2 - (a.points + a.num_comments * 2),
     )
-    .slice(0, 12);
+    .slice(0, 18);
 }
+
+/** The board never shows more than this. Nine live conversations, ranked. */
+export const MAX_DISCOURSE_ITEMS = 9;
 
 const clusterSchema = z.object({
   items: z
@@ -69,10 +72,10 @@ const clusterSchema = z.object({
       }),
     )
     .min(1)
-    .max(8),
+    .max(MAX_DISCOURSE_ITEMS),
 });
 
-const CLUSTER_SYSTEM = `You are the discourse mapper of ember. You receive today's AI-related Hacker News stories. Cluster them into 4-8 discourse items — the conversations people are actually having, not headlines. For each: a title phrased as the conversation ("Are agents ready for production?" not "Company ships agent"), a 1-2 sentence summary of what's being argued, and where a genuine disagreement exists, the two stances (stanceA vs stanceB) — null both when the story isn't divisive. Reference source stories by index. Skip stories that are pure product announcements with nothing arguable.`;
+const CLUSTER_SYSTEM = `You are the discourse mapper of ember. You receive today's AI-related Hacker News stories. Cluster them into 5-9 discourse items, the conversations people are actually having, not headlines. For each: a title phrased as the conversation ("Are agents ready for production?" not "Company ships agent"), a 1-2 sentence summary of what's being argued, and where a genuine disagreement exists, the two stances (stanceA vs stanceB), null for both when the story isn't divisive. Reference source stories by index. Skip stories that are pure product announcements with nothing arguable.`;
 
 /** Build DiscourseItems from live stories — Haiku clustering or heuristic mapping. */
 export async function buildLiveItems(
@@ -107,8 +110,8 @@ export async function buildLiveItems(
   }[];
 
   if (FIXTURE_MODE) {
-    // Keyless: one item per story — live data, heuristic shape.
-    raw = stories.slice(0, 8).map((s) => ({
+    // Keyless: one item per story. Live data, heuristic shape.
+    raw = stories.slice(0, MAX_DISCOURSE_ITEMS).map((s) => ({
       title: s.title,
       summary: s.title,
       stanceA: null,
@@ -133,7 +136,7 @@ export async function buildLiveItems(
           items: {
             type: "array",
             minItems: 1,
-            maxItems: 8,
+            maxItems: MAX_DISCOURSE_ITEMS,
             items: {
               type: "object",
               properties: {
@@ -162,6 +165,14 @@ export async function buildLiveItems(
         .map((i) => stories[i]),
     }));
   }
+
+  // A cluster with no surviving source story can't be cited, so drop it.
+  // Then rank by engagement and keep the top nine: that ordering is what
+  // rotates yesterday's quiet threads off the board as louder ones arrive.
+  raw = raw
+    .filter((r) => r.stories.length > 0)
+    .sort((a, b) => velocityOf(b.stories) - velocityOf(a.stories))
+    .slice(0, MAX_DISCOURSE_ITEMS);
 
   const embeddings = await embedBatch(
     raw.map(

@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local dev database snapshot (contains your transcripts) — never commit
+.ember-dev-db.json
+.ember-dev-db.json.tmp

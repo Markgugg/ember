@@ -89,6 +89,8 @@ export interface ComposerSources {
   conversations: ConversationView[];
   live: boolean;
   linkedinConnected: boolean;
+  /** Does the user hold any un-posted insight for a pinned story to meet? */
+  hasClaims: boolean;
 }
 
 /** Everything the composer sheet needs to let you pick a story and a conversation. */
@@ -96,16 +98,22 @@ export async function loadComposerSources(): Promise<ComposerSources> {
   const userId = await getUserId();
   const repo = await getRepo();
   const { linkedinReady } = await import("@/lib/linkedin");
-  const [{ stories, live }, conversations, profile] = await Promise.all([
-    getStories(),
-    getConversations(userId),
-    repo.getProfile(userId),
-  ]);
+  const [{ stories, live }, conversations, profile, insights] =
+    await Promise.all([
+      getStories(),
+      getConversations(userId),
+      repo.getProfile(userId),
+      repo.listInsights(userId),
+    ]);
   return {
     stories,
     conversations,
     live,
     linkedinConnected: linkedinReady(profile),
+    // "From the news" pins a story and draws the claim from everything you've
+    // ever said. With an empty bank it can only refuse, so the UI says so
+    // up front instead of letting you click into a dead end.
+    hasClaims: insights.some((i) => i.status !== "posted"),
   };
 }
 

@@ -12,6 +12,7 @@ import {
   compositeScore,
   differentiationPenalty,
   prefilterPairs,
+  PINNED_REFUSAL_THRESHOLD,
   REFUSAL_THRESHOLD,
 } from "./score";
 
@@ -200,7 +201,10 @@ export async function* runPipeline(
       }))
       .sort((a, b) => b.composite - a.composite);
 
-    const winner = ranked.find((r) => r.intersectionScore >= REFUSAL_THRESHOLD);
+    const bar = input.discourseItemId
+      ? PINNED_REFUSAL_THRESHOLD
+      : REFUSAL_THRESHOLD;
+    const winner = ranked.find((r) => r.intersectionScore >= bar);
 
     /* ── 4a. degraded: insights but no discourse at all ─────────── */
     if (!winner && items.length === 0) {

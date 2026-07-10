@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { cosineSimilarity } from "@/lib/vector";
+import { loadState, withPersistence } from "./persist";
 import type {
   Brief,
   BriefBundle,
@@ -15,8 +16,9 @@ import type { DraftPatch, NewBrief, NewDraft, NewInsight, NewTranscript, Repo } 
 
 /**
  * Credential-free dev/fixture store. Survives Next.js HMR via a globalThis
- * singleton; data lives until the dev server restarts. Never used when
- * Supabase is configured (see db/index.ts).
+ * singleton, and server restarts via a JSON snapshot on disk (see persist.ts)
+ * — without that, every restart emptied the insight bank and "From the news"
+ * refused with nothing to draw on. Never used when Supabase is configured.
  */
 interface MemoryState {
   profiles: Map<string, Profile>;
@@ -30,17 +32,21 @@ interface MemoryState {
 
 const g = globalThis as typeof globalThis & { __emberMemoryDb?: MemoryState };
 
+function emptyState(): MemoryState {
+  return {
+    profiles: new Map(),
+    transcripts: new Map(),
+    insights: new Map(),
+    discourse: [],
+    briefs: new Map(),
+    drafts: new Map(),
+    suppressions: new Set(),
+  };
+}
+
 function state(): MemoryState {
   if (!g.__emberMemoryDb) {
-    g.__emberMemoryDb = {
-      profiles: new Map(),
-      transcripts: new Map(),
-      insights: new Map(),
-      discourse: [],
-      briefs: new Map(),
-      drafts: new Map(),
-      suppressions: new Set(),
-    };
+    g.__emberMemoryDb = loadState<MemoryState>() ?? emptyState();
   }
   return g.__emberMemoryDb;
 }
@@ -61,7 +67,7 @@ function bundle(s: MemoryState, brief: Brief): BriefBundle {
   };
 }
 
-export const memoryRepo: Repo = {
+const rawMemoryRepo: Repo = {
   async getProfile(userId) {
     return state().profiles.get(userId) ?? null;
   },
@@ -309,3 +315,6 @@ export const memoryRepo: Repo = {
     }
   },
 };
+
+/** Every mutating call schedules a debounced snapshot to disk. */
+export const memoryRepo: Repo = withPersistence(rawMemoryRepo, state);

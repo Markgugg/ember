@@ -139,11 +139,13 @@ export function ComposerSheet() {
 
   const canGenerate = useMemo(() => {
     if (streaming) return false;
-    if (seg === "news") return Boolean(storyId);
+    // A pinned story needs a banked claim to meet; with none, this tab can
+    // only ever refuse, so don't let it be clicked.
+    if (seg === "news") return Boolean(storyId) && sources?.hasClaims !== false;
     // transcript & blend: a conversation is required; in blend the story is
     // optional — with none picked, Current auto-picks today's best match.
     return Boolean(conversationId) || pasted.trim().split(/\s+/).length > 20;
-  }, [seg, storyId, conversationId, pasted, streaming]);
+  }, [seg, storyId, conversationId, pasted, streaming, sources]);
 
   const generate = () => {
     setDraft(null);
@@ -276,6 +278,25 @@ export function ComposerSheet() {
                       ? "your pasted conversation"
                       : "— pick a conversation below")}
                 </p>
+              </div>
+            )}
+
+            {seg === "news" && sources !== null && !sources.hasClaims && (
+              <div className="mb-3 shrink-0 rounded-[14px] border border-[rgb(10_102_194/0.22)] bg-[rgb(10_102_194/0.06)] p-3.5">
+                <p className="mb-1 text-[12.5px] font-semibold text-ink">
+                  Current has nothing of yours to say about this yet.
+                </p>
+                <p className="mb-2.5 text-[12px] leading-relaxed text-ink-2">
+                  A story on its own isn&apos;t a post. Give it something you
+                  actually said and it will find where the two meet.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSeg("both")}
+                  className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-white transition-transform hover:scale-[1.03]"
+                >
+                  Add a conversation
+                </button>
               </div>
             )}
 

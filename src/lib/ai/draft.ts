@@ -4,6 +4,7 @@ import { FIXTURE_MODE } from "@/lib/env";
 import type { DiscourseItem, DraftAngle, Insight } from "@/lib/types";
 import { SONNET, structuredCall } from "./anthropic";
 import { findBannedPhrases } from "./banned";
+import { findStyleViolations, sanitizePunctuation } from "./style";
 import { DRAFT_SYSTEM } from "./prompts/draft";
 import { VOICE_SYSTEM } from "./prompts/voice";
 
@@ -88,17 +89,33 @@ export async function generateDrafts(ctx: DraftContext): Promise<DraftSet> {
     });
 
   let set = await run();
-  const violations = set.drafts.flatMap((d) => findBannedPhrases(d.body));
+  const faults = (s: DraftSet) => [
+    ...s.drafts.flatMap((d) => findBannedPhrases(d.body)),
+    ...s.drafts.flatMap((d) => findStyleViolations(d.body)),
+  ];
+
+  const violations = faults(set);
   if (violations.length > 0) {
     set = await run(
-      `Your previous drafts used banned phrases: ${[...new Set(violations)].join(", ")}. Rewrite without them or any close variants.`,
+      `Your previous drafts broke these rules: ${[...new Set(violations)].join(
+        ", ",
+      )}. Rewrite the offending sentences from scratch — do not just swap the character.`,
     );
-    const still = set.drafts.flatMap((d) => findBannedPhrases(d.body));
-    if (still.length > 0) {
-      throw new Error(`draft: banned phrases survived regeneration: ${still.join(", ")}`);
-    }
   }
-  return set;
+
+  // Style is a guarantee, not a request: whatever the model returns, no em
+  // dash or semicolon reaches a post. Banned *phrases* can't be repaired
+  // mechanically without changing meaning, so those still fail loudly.
+  const stillBanned = set.drafts.flatMap((d) => findBannedPhrases(d.body));
+  if (stillBanned.length > 0) {
+    throw new Error(
+      `draft: banned phrases survived regeneration: ${stillBanned.join(", ")}`,
+    );
+  }
+  return {
+    ...set,
+    drafts: set.drafts.map((d) => ({ ...d, body: sanitizePunctuation(d.body) })),
+  };
 }
 
 /** F11 — rewrite one draft in the author's voice, claims preserved. */
@@ -107,12 +124,13 @@ export async function rewriteInVoice(
   voiceSamples: string[],
 ): Promise<string> {
   if (FIXTURE_MODE) {
-    // Honest fixture: plainen — shorter sentences, no em-dash flourishes.
-    return body
-      .replace(/ — /g, ". ")
-      .split("\n")
-      .map((l) => l.trim())
-      .join("\n");
+    // Honest fixture: plainen the prose, same punctuation guarantee.
+    return sanitizePunctuation(
+      body
+        .split("\n")
+        .map((l) => l.trim())
+        .join("\n"),
+    );
   }
   const result = await structuredCall({
     model: SONNET,
@@ -132,7 +150,7 @@ export async function rewriteInVoice(
     validator: z.object({ body: z.string().min(100).max(2200) }),
     maxTokens: 2048,
   });
-  return result.body;
+  return sanitizePunctuation(result.body);
 }
 
 function buildUser(ctx: DraftContext): string {
