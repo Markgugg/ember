@@ -27,6 +27,12 @@ export interface ArticlePreview {
 }
 
 const TTL_MS = 30 * 60 * 1000;
+/**
+ * Failures expire fast. Caching a block for the full TTL means one timeout or
+ * one rate-limit poisons that story's preview for half an hour, which reads
+ * to the user as "the preview feature stopped working".
+ */
+const FAILURE_TTL_MS = 60 * 1000;
 const MAX_BYTES = 512 * 1024;
 
 const BROWSER_HEADERS: Record<string, string> = {
@@ -121,7 +127,10 @@ export async function fetchArticlePreview(
   rawUrl: string,
 ): Promise<ArticlePreview> {
   const cached = cache.get(rawUrl);
-  if (cached && Date.now() - cached.at < TTL_MS) return cached.value;
+  if (cached) {
+    const ttl = cached.value.fetched ? TTL_MS : FAILURE_TTL_MS;
+    if (Date.now() - cached.at < ttl) return cached.value;
+  }
 
   const domain = safeDomain(rawUrl);
   const empty: ArticlePreview = {
