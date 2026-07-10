@@ -30,7 +30,9 @@ export default function RootLayout({
       lang="en"
       className={`${instrument.variable} ${sourceSerif.variable} h-full antialiased`}
     >
-      <body className="min-h-full">
+      {/* Extensions (Grammarly, password managers) stamp attributes onto
+          <body> before React hydrates; ignore attribute diffs on this node. */}
+      <body className="min-h-full" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>
