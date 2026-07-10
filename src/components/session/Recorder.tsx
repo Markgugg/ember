@@ -10,13 +10,20 @@ export interface RecorderProps {
   /** Mic or transcription unavailable — parent surfaces the paste fallback. */
   onUnavailable: (reason: string) => void;
   disabled?: boolean;
+  /** Pill-sized, for the composer's picker column. */
+  compact?: boolean;
 }
 
 /**
  * F2 hero control — press, talk, done. Audio goes to /api/transcribe and is
  * never stored. Level meter via AnalyserNode; elapsed time while recording.
  */
-export function Recorder({ onTranscript, onUnavailable, disabled }: RecorderProps) {
+export function Recorder({
+  onTranscript,
+  onUnavailable,
+  disabled,
+  compact = false,
+}: RecorderProps) {
   const [state, setState] = useState<RecorderState>("idle");
   const [elapsed, setElapsed] = useState(0);
   const [level, setLevel] = useState(0);
@@ -112,6 +119,46 @@ export function Recorder({ onTranscript, onUnavailable, disabled }: RecorderProp
   const mins = Math.floor(elapsed / 60);
   const secs = String(elapsed % 60).padStart(2, "0");
 
+  if (compact) {
+    return state === "recording" ? (
+      <button
+        type="button"
+        onClick={stop}
+        aria-label="Stop recording"
+        className="inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1.5 text-[11.5px] font-semibold text-white"
+      >
+        <Square size={10} fill="currentColor" aria-hidden />
+        <span className="tabular-nums" aria-live="polite">
+          {mins}:{secs}
+        </span>
+        <span
+          aria-hidden
+          className="inline-block w-0.5 rounded-full bg-white/80 transition-[height] duration-75"
+          style={{ height: `${5 + level * 12}px` }}
+        />
+      </button>
+    ) : (
+      <button
+        type="button"
+        onClick={start}
+        disabled={disabled || state === "transcribing"}
+        aria-label="Record your thinking"
+        className="inline-flex items-center gap-1.5 rounded-full border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.7)] px-3 py-1.5 text-[11.5px] font-semibold transition-transform hover:scale-[1.04] disabled:pointer-events-none disabled:opacity-50"
+      >
+        {state === "transcribing" ? (
+          <>
+            <span className="size-3 animate-spin-fast rounded-full border-2 border-[rgb(10_102_194/0.25)] border-t-accent" />
+            Transcribing…
+          </>
+        ) : (
+          <>
+            <Mic size={12} aria-hidden /> Record
+          </>
+        )}
+      </button>
+    );
+  }
+
   return (
     <div className="flex items-center gap-3">
       {state === "recording" ? (
@@ -120,14 +167,14 @@ export function Recorder({ onTranscript, onUnavailable, disabled }: RecorderProp
             type="button"
             onClick={stop}
             aria-label="Stop recording"
-            className="flex size-12 items-center justify-center rounded-full bg-ember text-white shadow-sm transition-colors duration-[120ms] hover:bg-ember-hover"
+            className="flex size-12 items-center justify-center rounded-full bg-accent text-white shadow-sm transition-colors hover:bg-accent-hover"
           >
             <Square size={16} fill="currentColor" />
           </button>
           <div className="flex items-center gap-2" aria-live="polite">
             <span
               aria-hidden
-              className="inline-block w-1 rounded-full bg-ember transition-[height] duration-75"
+              className="inline-block w-1 rounded-full bg-accent transition-[height] duration-75"
               style={{ height: `${8 + level * 24}px` }}
             />
             <span className="text-sm tabular-nums text-ink-2">
@@ -141,10 +188,10 @@ export function Recorder({ onTranscript, onUnavailable, disabled }: RecorderProp
           onClick={start}
           disabled={disabled || state === "transcribing"}
           aria-label="Record your thinking"
-          className="flex size-12 items-center justify-center rounded-full border border-line-strong bg-raised text-ink transition-colors duration-[120ms] hover:border-ember hover:text-ember disabled:pointer-events-none disabled:opacity-40"
+          className="flex size-12 items-center justify-center rounded-full border border-[rgb(27_36_48/0.1)] bg-white text-ink transition-colors hover:border-accent hover:text-accent disabled:pointer-events-none disabled:opacity-40"
         >
           {state === "transcribing" ? (
-            <span className="size-1.5 animate-ember-breathe rounded-full bg-ember" />
+            <span className="size-3 animate-spin-fast rounded-full border-2 border-[rgb(10_102_194/0.25)] border-t-accent" />
           ) : (
             <Mic size={18} />
           )}

@@ -12,12 +12,19 @@ const bodySchema = z
   .object({
     transcriptText: z.string().max(100_000).optional(),
     source: z.enum(["voice", "paste", "upload"]).optional(),
+    transcriptId: z.string().uuid().optional(),
     insightId: z.string().uuid().optional(),
+    discourseItemId: z.string().uuid().optional(),
     topicHint: z.string().max(300).optional(),
   })
-  .refine((b) => Boolean(b.transcriptText?.trim()) || Boolean(b.insightId), {
-    message: "transcriptText or insightId required",
-  });
+  .refine(
+    (b) =>
+      Boolean(b.transcriptText?.trim()) ||
+      Boolean(b.transcriptId) ||
+      Boolean(b.insightId) ||
+      Boolean(b.discourseItemId),
+    { message: "need a transcript, an insight, or a story" },
+  );
 
 /**
  * F8 — the core loop as SSE. Each event:
@@ -34,7 +41,14 @@ export async function POST(request: NextRequest) {
     );
   }
   const userId = await getUserId();
-  const { transcriptText, source, insightId, topicHint } = parsed.data;
+  const {
+    transcriptText,
+    source,
+    transcriptId,
+    insightId,
+    discourseItemId,
+    topicHint,
+  } = parsed.data;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -48,7 +62,9 @@ export async function POST(request: NextRequest) {
           userId,
           transcriptText: transcriptText ? stripVtt(transcriptText) : undefined,
           source,
+          transcriptId,
           insightId,
+          discourseItemId,
           topicHint,
         });
         for await (const event of events) {

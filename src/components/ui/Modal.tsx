@@ -68,14 +68,19 @@ export function Modal({ open, onClose, label, children }: ModalProps) {
     >
       <div
         aria-hidden
-        className="absolute inset-0 bg-[rgb(0_0_0/0.5)] backdrop-blur-sm"
+        className="absolute inset-0 bg-[rgb(27_36_48/0.28)] backdrop-blur-[10px]"
       />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        className="relative w-full max-w-lg animate-rise-in rounded-xl border border-line-strong bg-overlay p-6 shadow-[var(--shadow-overlay)]"
+        className="glass relative w-full max-w-lg animate-spring-in rounded-[24px] p-7"
+        style={{
+          background: "rgb(255 255 255 / 0.86)",
+          backdropFilter: "blur(44px) saturate(1.8)",
+          boxShadow: "0 40px 90px rgb(31 45 65 / 0.3)",
+        }}
       >
         {children}
       </div>

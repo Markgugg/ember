@@ -22,12 +22,20 @@ const PREFILTER_FLOOR = FIXTURE_MODE ? 0.05 : 0.35;
 
 export interface PipelineInput {
   userId: string;
-  /** Fresh thinking (session path) … */
+  /** Fresh thinking (paste/record/upload) … */
   transcriptText?: string;
   source?: TranscriptSource;
-  /** … or an existing vaulted insight (library path). */
+  /** … or a conversation already in the library ("From a transcript") … */
+  transcriptId?: string;
+  /** … or one vaulted claim (an angle chip). */
   insightId?: string;
-  /** Bias intersection toward this topic (refusal redirect). */
+  /**
+   * Pin the story ("From the news" / "Blend both"). The intersection is
+   * restricted to this item — and if nothing you've said meets it, Current
+   * refuses rather than inventing an opinion for you.
+   */
+  discourseItemId?: string;
+  /** Soft bias toward a topic (refusal redirect). */
   topicHint?: string;
 }
 
@@ -55,6 +63,56 @@ export async function* runPipeline(
         count: 1,
         strongest: existing.text,
       };
+    } else if (input.discourseItemId && !input.transcriptText && !input.transcriptId) {
+      // "From the news": the story is pinned, so the claim must come from
+      // everything you've ever said. No vault, no post — that's the rule.
+      sessionInsights = (await repo.listInsights(input.userId)).filter(
+        (i) => i.status !== "posted",
+      );
+      if (sessionInsights.length === 0) {
+        yield { stage: "no_insights" };
+        const brief = await insertRefusal(repo, input.userId, null, null);
+        yield { stage: "done", briefId: brief.id };
+        return;
+      }
+      const strongest = [...sessionInsights].sort(
+        (a, b) => b.authority + b.charge - (a.authority + a.charge),
+      )[0];
+      yield {
+        stage: "insights_found",
+        count: sessionInsights.length,
+        strongest: strongest.text,
+      };
+    } else if (input.transcriptId) {
+      // "From a transcript": a conversation already in the library.
+      const stored = await repo.getTranscript(input.transcriptId, input.userId);
+      if (!stored) throw new Error("transcript not found");
+      sessionInsights = await repo.listInsightsByTranscript(
+        stored.id,
+        input.userId,
+      );
+      if (sessionInsights.length === 0) {
+        sessionInsights = await mineAndBank(
+          repo,
+          input.userId,
+          stored.id,
+          stored.rawText,
+        );
+      }
+      if (sessionInsights.length === 0) {
+        yield { stage: "no_insights" };
+        const brief = await insertRefusal(repo, input.userId, null, null);
+        yield { stage: "done", briefId: brief.id };
+        return;
+      }
+      const strongest = [...sessionInsights].sort(
+        (a, b) => b.authority + b.charge - (a.authority + a.charge),
+      )[0];
+      yield {
+        stage: "insights_found",
+        count: sessionInsights.length,
+        strongest: strongest.text,
+      };
     } else if (input.transcriptText) {
       const transcript = await repo.insertTranscript({
         userId: input.userId,
@@ -63,32 +121,12 @@ export async function* runPipeline(
         wordCount: input.transcriptText.split(/\s+/).length,
       });
 
-      const mined = await mineInsights(input.transcriptText);
-      for (const m of mined) {
-        const embedding = await embed(`${m.text} ${m.quote}`);
-        const similar = await repo.findSimilarInsight(
-          input.userId,
-          embedding,
-          DEDUPE_THRESHOLD,
-        );
-        if (similar) {
-          await repo.touchInsightRecurrence(similar.id, input.userId);
-          sessionInsights.push(similar);
-        } else {
-          sessionInsights.push(
-            await repo.insertInsight({
-              userId: input.userId,
-              transcriptId: transcript.id,
-              text: m.text,
-              quote: m.quote,
-              type: m.type,
-              authority: m.authority,
-              charge: m.charge,
-              embedding,
-            }),
-          );
-        }
-      }
+      sessionInsights = await mineAndBank(
+        repo,
+        input.userId,
+        transcript.id,
+        input.transcriptText,
+      );
 
       if (sessionInsights.length === 0) {
         yield { stage: "no_insights" };
@@ -105,7 +143,7 @@ export async function* runPipeline(
         strongest: strongest.text,
       };
     } else {
-      throw new Error("pipeline needs transcriptText or insightId");
+      throw new Error("pipeline needs transcriptText, transcriptId, insightId, or discourseItemId");
     }
 
     /* ── 2. discourse ───────────────────────────────────────────── */
@@ -119,7 +157,13 @@ export async function* runPipeline(
       yield { stage: "discourse_degraded" };
     }
 
-    if (input.topicHint && items.length > 0) {
+    if (input.discourseItemId) {
+      // Pinned story wins over everything: this and only this conversation.
+      const pinned =
+        items.find((i) => i.id === input.discourseItemId) ??
+        (await repo.getDiscourseItem(input.discourseItemId));
+      items = pinned ? [pinned] : [];
+    } else if (input.topicHint && items.length > 0) {
       const hint = input.topicHint.toLowerCase();
       const hinted = items.filter(
         (i) =>
@@ -135,7 +179,10 @@ export async function* runPipeline(
     );
     const postedEmbeddings = posted.map((p) => p.embedding);
 
-    const candidates = prefilterPairs(sessionInsights, items, PREFILTER_FLOOR);
+    // When the user pinned a story, let the judge see every claim they hold —
+    // the judge is the stingy one, and it still refuses weak matches.
+    const floor = input.discourseItemId ? 0 : PREFILTER_FLOOR;
+    const candidates = prefilterPairs(sessionInsights, items, floor);
     const judged = candidates.length > 0 ? await judgePairs(candidates) : [];
 
     const ranked = judged
@@ -221,6 +268,43 @@ export async function* runPipeline(
 }
 
 /* ── helpers ──────────────────────────────────────────────────────── */
+
+/** Mine a stored transcript into banked insights (dedupe-aware). */
+async function mineAndBank(
+  repo: Awaited<ReturnType<typeof getRepo>>,
+  userId: string,
+  transcriptId: string,
+  rawText: string,
+): Promise<Insight[]> {
+  const mined = await mineInsights(rawText);
+  const out: Insight[] = [];
+  for (const m of mined) {
+    const embedding = await embed(`${m.text} ${m.quote}`);
+    const similar = await repo.findSimilarInsight(
+      userId,
+      embedding,
+      DEDUPE_THRESHOLD,
+    );
+    if (similar) {
+      await repo.touchInsightRecurrence(similar.id, userId);
+      out.push(similar);
+    } else {
+      out.push(
+        await repo.insertInsight({
+          userId,
+          transcriptId,
+          text: m.text,
+          quote: m.quote,
+          type: m.type,
+          authority: m.authority,
+          charge: m.charge,
+          embedding,
+        }),
+      );
+    }
+  }
+  return out;
+}
 
 async function draftAndPersist(
   repo: Awaited<ReturnType<typeof getRepo>>,

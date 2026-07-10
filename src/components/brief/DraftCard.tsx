@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Globe } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import { Rationale } from "@/components/ui/AiVoice";
 import { useToast } from "@/components/ui/Toast";
 import { markDraftCopied, notMyVoice, saveDraftEdit } from "@/app/actions";
@@ -22,8 +21,9 @@ export interface PostAuthor {
 }
 
 /**
- * The draft rendered as a LinkedIn post preview — you're editing the thing
- * itself, framed exactly as your audience will meet it. Copy assumes posted.
+ * The draft rendered as a LinkedIn post preview — you edit the thing itself,
+ * framed as your audience will meet it. Copy assumes posted; we never ask the
+ * user to file paperwork afterwards.
  */
 export function DraftCard({
   draft,
@@ -87,29 +87,25 @@ export function DraftCard({
 
   return (
     <div>
-      {/* angle + reason live above the frame — strategy talk stays out of the post */}
       <div className="mb-2 flex items-baseline gap-2 px-1">
-        <span className="text-sm font-semibold capitalize text-ink">
-          {draft.angle}
-        </span>
+        <span className="text-[13px] font-bold capitalize">{draft.angle}</span>
         <Rationale>{draft.rationale}</Rationale>
       </div>
 
-      {/* LinkedIn post preview frame */}
-      <div className="card-surface overflow-hidden">
+      <div className="glass overflow-hidden rounded-[20px]">
         <div className="flex items-center gap-3 px-5 pb-3 pt-4">
           <span
             aria-hidden
-            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-ember text-base font-semibold text-white"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-base font-semibold text-white"
           >
             {initial}
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-ink">{author.name}</p>
-            <p className="truncate text-xs text-ink-3">
+            <p className="text-[14px] font-semibold">{author.name}</p>
+            <p className="truncate text-[11.5px] text-ink-3">
               {author.headline ?? "You"}
             </p>
-            <p className="flex items-center gap-1 text-xs text-ink-3">
+            <p className="flex items-center gap-1 text-[11px] text-ink-3">
               now · <Globe size={10} aria-hidden />
             </p>
           </div>
@@ -123,38 +119,43 @@ export function DraftCard({
           role="textbox"
           aria-multiline="true"
           aria-label={`${draft.angle} draft — editable`}
-          className="whitespace-pre-wrap px-5 pb-4 text-[15px] leading-relaxed text-ink outline-none"
+          className="whitespace-pre-wrap px-5 pb-4 text-[15px] leading-relaxed outline-none"
         >
           {body}
         </div>
 
-        <div className="flex items-center justify-between border-t border-line bg-accent-softer px-4 py-3">
-          <Button
-            variant="ghost"
+        <div className="flex items-center justify-between border-t border-[rgb(27_36_48/0.07)] bg-[rgb(255_255_255/0.4)] px-4 py-3">
+          <button
+            type="button"
             onClick={() => void rewrite()}
             disabled={rewriting}
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-semibold text-ink-2 transition-colors hover:bg-[rgb(27_36_48/0.06)] hover:text-ink disabled:opacity-50"
           >
             {rewriting ? (
               <>
-                <span className="size-1.5 animate-ember-breathe rounded-full bg-ember" />
+                <span className="size-3 animate-spin-fast rounded-full border-2 border-[rgb(10_102_194/0.25)] border-t-accent" />
                 Rewriting…
               </>
             ) : (
               "Not my voice"
             )}
-          </Button>
+          </button>
           <div className="flex items-center gap-3">
             <a
               href="https://www.linkedin.com/feed/?shareActive=true"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-ink-3 transition-colors duration-[120ms] hover:text-ink-2"
+              className="inline-flex items-center gap-1 text-[11px] text-ink-3 transition-colors hover:text-ink-2"
             >
               open LinkedIn <ExternalLink size={11} aria-hidden />
             </a>
-            <Button onClick={() => void copy()}>
+            <button
+              type="button"
+              onClick={() => void copy()}
+              className="rounded-full bg-ink px-5 py-2 text-[12.5px] font-semibold text-white transition-transform hover:scale-[1.03]"
+            >
               {copied ? "Copied" : "Copy post"}
-            </Button>
+            </button>
           </div>
         </div>
       </div>

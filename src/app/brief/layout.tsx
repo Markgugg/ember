@@ -1,3 +1,3 @@
-// Same app shell as the (app) group — the directory lives outside the group
-// only for filesystem reasons; the URL and chrome are identical.
+// The brief lives outside the (app) route group for filesystem reasons only;
+// its URL and chrome are identical to every other app page.
 export { default } from "../(app)/layout";

@@ -112,6 +112,7 @@ const toDraft = (r: any): Draft => ({
   isPrimary: r.is_primary,
   status: r.status,
   editDiff: r.edit_diff,
+  plannedFor: r.planned_for ?? null,
   createdAt: r.created_at,
 });
 
@@ -192,6 +193,25 @@ export const supabaseRepo: Repo = {
     throwOn(error, "insertTranscript");
     return toTranscript(data);
   },
+  async listTranscripts(userId) {
+    const { data, error } = await admin()
+      .from("transcripts")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    throwOn(error, "listTranscripts");
+    return (data ?? []).map(toTranscript);
+  },
+  async getTranscript(id, userId) {
+    const { data, error } = await admin()
+      .from("transcripts")
+      .select("*")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    throwOn(error, "getTranscript");
+    return data ? toTranscript(data) : null;
+  },
 
   async listInsights(userId) {
     const { data, error } = await admin()
@@ -200,6 +220,15 @@ export const supabaseRepo: Repo = {
       .eq("user_id", userId)
       .order("last_seen_at", { ascending: false });
     throwOn(error, "listInsights");
+    return (data ?? []).map(toInsight);
+  },
+  async listInsightsByTranscript(transcriptId, userId) {
+    const { data, error } = await admin()
+      .from("insights")
+      .select("*")
+      .eq("transcript_id", transcriptId)
+      .eq("user_id", userId);
+    throwOn(error, "listInsightsByTranscript");
     return (data ?? []).map(toInsight);
   },
   async getInsight(id, userId) {
@@ -292,6 +321,15 @@ export const supabaseRepo: Repo = {
     throwOn(error, "restoreInsight");
   },
 
+  async getDiscourseItem(id) {
+    const { data, error } = await admin()
+      .from("discourse_items")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    throwOn(error, "getDiscourseItem");
+    return data ? toDiscourse(data) : null;
+  },
   async latestSnapshot() {
     const { data: latest, error: e1 } = await admin()
       .from("discourse_items")
@@ -413,6 +451,15 @@ export const supabaseRepo: Repo = {
     throwOn(error, "insertDrafts");
     return (data ?? []).map(toDraft);
   },
+  async listDrafts(userId) {
+    const { data, error } = await admin()
+      .from("drafts")
+      .select("*, briefs!inner(user_id)")
+      .eq("briefs.user_id", userId)
+      .order("created_at", { ascending: false });
+    throwOn(error, "listDrafts");
+    return (data ?? []).map(toDraft);
+  },
   async getDraft(id, userId) {
     const { data, error } = await admin()
       .from("drafts")
@@ -433,6 +480,7 @@ export const supabaseRepo: Repo = {
         ...(patch.status !== undefined && { status: patch.status }),
         ...(patch.editDiff !== undefined && { edit_diff: patch.editDiff }),
         ...(patch.rationale !== undefined && { rationale: patch.rationale }),
+        ...(patch.plannedFor !== undefined && { planned_for: patch.plannedFor }),
       })
       .eq("id", id)
       .select()

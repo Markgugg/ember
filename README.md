@@ -1,18 +1,24 @@
-# ember
+# Current
 
-**You already said it.**
+**Posts powered by what's current.**
 
-Ember listens to your thinking — voice notes, meetings, brain-dumps — watches what the AI world is arguing about in real time, and writes the LinkedIn post where the two meet. It only writes when it catches you and the discourse overlapping, so every post is something only you could have said, published at the exact moment people are listening.
+Current reads what the AI world is arguing about right now, mines the claims out of the conversations you actually had, and writes the LinkedIn post where the two meet.
 
-A tool that declines to post is a tool people believe: when nothing in your thinking clears the bar, ember says so, and tells you what the world is arguing about in your lane instead.
+It only writes when they meet. If nothing you've said connects to what the world is arguing about, Current tells you so instead of inventing an opinion for you.
 
-## How it works
+## The two sources
 
-1. **Talk.** Hit record and think out loud for two minutes (or paste a transcript).
-2. **Watch it think.** Ember mines your actual claims, checks them against live AI discourse (HN, news, developer conversations), and narrates its reasoning as it goes.
-3. **Get one post.** Not three variants — the post it would pick, with the reason it exists stated above it. Copy, done.
+**Today in AI** — a live feed pulled from Hacker News at request time (front page + the last 24 hours of AI stories, ranked by engagement). With an Anthropic key, stories are clustered into *tensions*: one side vs the other. Refreshes every few minutes.
 
-While you're away, ember keeps matching your vaulted insights against fresh discourse. Some mornings you open it and the post is already waiting: *"You said this two weeks ago — the world caught up today."*
+**Your voice** — meetings, podcasts, voice memos, customer calls. Paste, upload, or record. Current mines each conversation into *angles*: the claims you made, quoted verbatim from your own words.
+
+**The composer blends them.** Three modes:
+
+| Mode | What it does |
+|---|---|
+| **From the news** | Pin a story. Current finds which of your banked claims meets it — or refuses. |
+| **From a transcript** | Bring a conversation. Current finds the claim worth posting, and the live hook for it. |
+| **Blend both** | A story *and* a conversation, pinned together. The intersection, on purpose. |
 
 ## Run it
 
@@ -21,17 +27,15 @@ npm install
 npm run dev        # → http://localhost:3000
 ```
 
-**Zero keys required.** With no `.env.local`, ember runs in fixture mode: deterministic heuristic AI (real sentence-level insight mining, real embedding-based matching) and an in-memory store — the full product loop works, including the refusal. Use the "Try it with a sample transcript" chip.
+**Zero keys required.** With no `.env.local`, Current runs in fixture mode: deterministic heuristic mining and embedding-based matching, backed by an in-memory store. The news feed is **live either way** — the Hacker News pull needs no key. The whole loop works, including the refusal.
 
-**The AI context is live either way.** Discourse is pulled from Hacker News (Algolia API, keyless) at session time — with an Anthropic key it's clustered into named tensions by Haiku; without, top AI stories map to discourse items heuristically. If the pull fails, ember falls back to curated perennial debates and *says so* in the reasoning stream.
-
-To go live, copy `.env.example` → `.env.local` and fill in:
+To go further, copy `.env.example` → `.env.local`:
 
 | Key | Unlocks |
 |---|---|
-| `ANTHROPIC_API_KEY` + `OPENAI_API_KEY` | real insight mining, intersection judging, draft writing, voice rewrite |
-| `OPENAI_API_KEY` alone | Whisper transcription for the record button |
-| `NEXT_PUBLIC_SUPABASE_URL` + keys | persistent Postgres storage (run `supabase/migrations/0001_init.sql`) |
+| `ANTHROPIC_API_KEY` | real insight mining, tension clustering, intersection judging, draft writing, voice rewrite |
+| `OPENAI_API_KEY` | embeddings + Whisper transcription for the record button and audio uploads |
+| `NEXT_PUBLIC_SUPABASE_URL` + keys | persistent Postgres storage (run the migrations in `supabase/migrations/`) |
 
 ```bash
 npm test           # unit tests: provenance gate, scoring, banned phrases
@@ -40,14 +44,16 @@ npm run build      # production build
 
 ## What's honest about it
 
-- **Quotes are verbatim or rejected** — every insight's supporting quote is validated as a strict substring of your transcript, server-side.
-- **A trend with no matching insight can never produce a post** — if nothing you said meets what the world is arguing about, ember refuses and tells you what it almost picked and why it didn't.
-- **Banned-phrase gate** — drafts containing AI-tell phrases ("delve", "game-changer", …) are regenerated or failed, never shipped.
-
-## Docs
-
-- [SPEC.md](./SPEC.md) — full implementation specification: features + acceptance criteria, schema, AI pipelines, testing, deployment
+- **Quotes are verbatim or rejected.** Every angle's supporting quote is validated as a strict substring of your transcript, server-side. A quote that doesn't match kills that angle, not the batch.
+- **A story alone can never produce a post.** Pin any headline with an empty vault and Current refuses — there's a unit test for it.
+- **Banned-phrase gate.** Drafts containing AI tells ("delve", "game-changer", "in today's fast-paced world") are regenerated once, then failed. Never shipped.
+- **No invented numbers.** The dashboard counts angles banked, drafts written, and posts shipped — things it actually knows. No follower counts it can't see.
+- **Current never posts for you.** LinkedIn's API won't allow it without an approved app. A queue slot is a reminder, and the Queue page says so.
 
 ## Stack
 
-Next.js 16 · TypeScript · Supabase (Postgres + pgvector) with in-memory dev fallback · Anthropic Claude (Sonnet 5 + Haiku 4.5) · Whisper · Vercel-ready
+Next.js 16 · TypeScript · Supabase (Postgres + pgvector) with an in-memory dev fallback · Anthropic Claude (Sonnet 5 + Haiku 4.5) · Whisper · Hacker News (Algolia) · Vercel-ready
+
+## Docs
+
+- [SPEC.md](./SPEC.md) — the engineering spec: features + acceptance criteria, schema, AI pipeline, testing, deployment

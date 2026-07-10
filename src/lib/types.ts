@@ -103,6 +103,11 @@ export interface Draft {
   isPrimary: boolean;
   status: DraftStatus;
   editDiff: { before: string; after: string } | null;
+  /**
+   * A slot you planned for this post. A reminder only — Current never posts
+   * on your behalf, so nothing fires at this time.
+   */
+  plannedFor: string | null;
   createdAt: string;
 }
 

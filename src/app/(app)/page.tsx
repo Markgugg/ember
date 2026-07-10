@@ -1,215 +1,237 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  ArrowRight,
-  AudioLines,
-  Flame,
-  Lightbulb,
-  PenLine,
-  Radio,
-} from "lucide-react";
 import { getRepo } from "@/lib/db";
 import { getUserId } from "@/lib/identity";
-import { getDashboardData } from "@/lib/ideas";
-import { SourceChip } from "@/components/ui/SourceChip";
-import { Rationale } from "@/components/ui/AiVoice";
+import { getConversations, getStories, draftTitle, formatAge } from "@/lib/view";
+import { StoryCard, LiveBadge } from "@/components/news/StoryCard";
+import { ComposeLink } from "@/components/composer/ComposeLink";
 
 export const dynamic = "force-dynamic";
 
-export default async function Dashboard() {
+export default async function Home() {
   const userId = await getUserId();
   const repo = await getRepo();
   const profile = await repo.getProfile(userId);
   if (!profile?.onboardedAt) redirect("/welcome");
 
-  const data = await getDashboardData(userId);
-  const { stats } = data;
+  const [{ stories, live, snapshotAgeHours }, conversations, drafts, insights] =
+    await Promise.all([
+      getStories(),
+      getConversations(userId),
+      repo.listDrafts(userId),
+      repo.listInsights(userId),
+    ]);
+
   const firstName = profile.displayName?.split(" ")[0] ?? "";
+  const queued = drafts
+    .filter((d) => d.status !== "posted")
+    .sort((a, b) =>
+      (a.plannedFor ?? "9999").localeCompare(b.plannedFor ?? "9999"),
+    )
+    .slice(0, 3);
+
+  const shipped = drafts.filter((d) => d.status === "posted").length;
+  const angles = insights.filter((i) => i.status !== "posted").length;
 
   return (
-    <div className="mx-auto max-w-[1100px] px-8 py-8">
-      <div className="mb-6 flex items-end justify-between">
+    <div className="mx-auto flex max-w-[1200px] animate-fade-up flex-col gap-[22px] px-8 pb-12 pt-[100px]">
+      {/* greeting + real numbers */}
+      <div className="flex flex-wrap items-end gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-ink">
-            Welcome back{firstName ? `, ${firstName}` : ""}
+          <h1 className="text-[27px] font-bold tracking-[-0.02em]">
+            {greeting()}
+            {firstName ? `, ${firstName}` : ""}.
           </h1>
-          <p className="mt-1 text-sm text-ink-2">
-            {data.live ? (
-              <>
-                <span className="mr-1.5 inline-block size-1.5 rounded-full bg-success align-middle" />
-                Watching the AI conversation live
-                {stats.snapshotAgeHours !== null &&
-                  ` · refreshed ${formatAge(stats.snapshotAgeHours)}`}
-              </>
-            ) : (
-              <>
-                <span className="mr-1.5 inline-block size-1.5 rounded-full bg-caution align-middle" />
-                Live feed unreachable — using evergreen debates
-              </>
-            )}
+          <p className="mt-1 text-[13px] text-ink-2">
+            {longDate()} ·{" "}
+            {queued.length > 0
+              ? `${queued.length} post${queued.length === 1 ? "" : "s"} waiting in your queue`
+              : "nothing queued — the feed is live below"}
           </p>
         </div>
-        <Link
-          href="/compose"
-          className="flex h-10 items-center gap-2 rounded-md bg-ember px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-ember-hover"
-        >
-          <PenLine size={15} aria-hidden />
-          Write a Post
-        </Link>
-      </div>
-
-      {/* stat tiles */}
-      <div className="mb-6 grid grid-cols-3 gap-4">
-        <StatTile label="Insights banked" value={stats.insightsBanked} />
-        <StatTile label="Posts drafted" value={stats.postsDrafted} />
-        <StatTile label="Posts shipped" value={stats.postsShipped} />
-      </div>
-
-      <div className="grid grid-cols-[1fr_360px] gap-6">
-        {/* left column */}
-        <div className="flex min-w-0 flex-col gap-6">
-          {/* Post ideas — vault × live discourse */}
-          <section className="card-surface p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
-                <Lightbulb size={16} className="text-ember" aria-hidden />
-                Post ideas for you
-              </h2>
-              <span className="text-xs text-ink-3">
-                your thinking × today&apos;s conversation
-              </span>
-            </div>
-
-            {data.ideas.length > 0 ? (
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-                {data.ideas.map((idea) => (
-                  <div
-                    key={idea.insight.id}
-                    className="flex flex-col justify-between rounded-md border border-line bg-accent-softer p-4"
-                  >
-                    <p className="mb-3 line-clamp-4 text-sm text-ink">
-                      {idea.insight.text}
-                    </p>
-                    <div>
-                      <p className="mb-3 line-clamp-2 text-xs text-ink-3">
-                        ↔ {idea.item.title}
-                      </p>
-                      <Link
-                        href={`/compose?insight=${idea.insight.id}`}
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-ember hover:text-ember-hover"
-                      >
-                        Generate post <ArrowRight size={14} aria-hidden />
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-md border border-dashed border-line p-6 text-center">
-                <p className="text-sm text-ink-2">
-                  No banked thinking matches today&apos;s conversation yet.
-                </p>
-                <Rationale className="mt-2 inline-block">
-                  drop a transcript below and I&apos;ll start finding overlaps.
-                </Rationale>
-              </div>
-            )}
-          </section>
-
-          {/* Transcript intake — requirement 2, front and center */}
-          <section className="card-surface flex items-center justify-between gap-6 bg-gradient-to-r from-accent-soft to-raised p-5">
-            <div>
-              <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
-                <AudioLines size={16} className="text-ember" aria-hidden />
-                Got thinking to unload?
-              </h2>
-              <p className="mt-1 max-w-md text-sm text-ink-2">
-                Paste a meeting transcript, upload a voice-note transcript, or
-                record two minutes of rambling — ember mines the claims worth
-                your name.
-              </p>
-            </div>
-            <Link
-              href="/compose"
-              className="flex h-10 shrink-0 items-center gap-2 rounded-md border border-line bg-raised px-4 text-sm font-medium text-ink shadow-sm transition-colors hover:border-line-strong"
-            >
-              Drop a transcript <ArrowRight size={14} aria-hidden />
-            </Link>
-          </section>
+        <div className="flex-1" />
+        <div className="glass-soft flex items-stretch overflow-hidden rounded-[20px]">
+          <Stat value={angles} label="Angles banked" />
+          <Divider />
+          <Stat value={drafts.length} label="Drafts written" />
+          <Divider />
+          <Stat value={shipped} label="Posts shipped" />
         </div>
+      </div>
 
-        {/* right column — requirement 1: live AI discourse */}
-        <aside className="card-surface h-fit p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
-              <Radio size={16} className="text-ember" aria-hidden />
-              AI right now
-            </h2>
+      {/* ── source 1: live AI news ─────────────────────────────── */}
+      <section>
+        <div className="mb-3 flex items-baseline gap-2.5">
+          <h2 className="text-[17px] font-bold tracking-[-0.01em]">
+            Today in AI
+          </h2>
+          <LiveBadge live={live} />
+          <span className="text-[12px] text-ink-3">
+            {live
+              ? `updated ${snapshotAgeHours !== null ? formatAge(snapshotAgeHours) : "just now"} ago`
+              : "live feed unreachable — showing evergreen debates"}
+          </span>
+          <div className="flex-1" />
+          <Link
+            href="/news"
+            className="text-[12.5px] font-semibold text-accent hover:underline"
+          >
+            See the full feed →
+          </Link>
+        </div>
+        <div className="no-scrollbar flex gap-4 overflow-x-auto pb-1.5">
+          {stories.slice(0, 6).map((s) => (
+            <StoryCard key={s.id} story={s} width={280} />
+          ))}
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
+        {/* ── source 2: your conversations ─────────────────────── */}
+        <section className="glass rounded-[20px] px-[22px] py-[18px]">
+          <div className="mb-2.5 flex items-center">
+            <span className="text-[15px] font-bold">Your voice</span>
+            <span className="ml-2 text-[11.5px] text-ink-3">
+              conversations become posts
+            </span>
+            <div className="flex-1" />
             <Link
-              href="/pulse"
-              className="text-xs font-medium text-ember hover:text-ember-hover"
+              href="/transcripts"
+              className="text-[12px] font-semibold text-accent hover:underline"
             >
-              See all →
+              Open library →
             </Link>
           </div>
-          <div className="flex flex-col">
-            {data.discourse.slice(0, 4).map((item, i) => (
-              <div
-                key={item.id}
-                className={`py-3 ${i > 0 ? "border-t border-line" : "pt-0"}`}
+
+          {conversations.length === 0 ? (
+            <div className="rounded-[14px] border border-dashed border-[rgb(27_36_48/0.18)] p-6 text-center">
+              <p className="text-[13px] text-ink-2">
+                No conversations yet. The news gives you the moment — a
+                conversation gives you something to say about it.
+              </p>
+              <ComposeLink
+                seg="transcript"
+                className="mt-3 inline-flex pill-primary px-4 py-2 text-[12.5px]"
               >
-                <div className="mb-1 flex items-start gap-2">
-                  {item.velocity > 0.6 && (
-                    <Flame
-                      size={13}
-                      className="mt-0.5 shrink-0 text-caution"
-                      aria-hidden
-                    />
-                  )}
-                  <p className="text-sm font-medium leading-snug text-ink">
-                    {item.title}
-                  </p>
-                </div>
-                {item.stanceA && (
-                  <p className="mb-1.5 line-clamp-2 text-xs text-ink-2">
-                    “{item.stanceA}” vs “{item.stanceB}”
-                  </p>
-                )}
-                <div className="flex items-center justify-between gap-2">
-                  {item.sources[0] && (
-                    <SourceChip
-                      url={item.sources[0].url}
-                      domain={item.sources[0].domain}
-                      meta={item.sources[0].meta}
-                    />
-                  )}
-                  <Link
-                    href={`/compose?topic=${encodeURIComponent(item.title)}`}
-                    className="shrink-0 text-xs font-medium text-ember hover:text-ember-hover"
-                  >
-                    Write about this
-                  </Link>
-                </div>
-              </div>
-            ))}
+                Add your first transcript
+              </ComposeLink>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {conversations.slice(0, 3).map((c) => (
+                <ComposeLink
+                  key={c.id}
+                  seg="transcript"
+                  conversation={c.id}
+                  className="glass-inner flex items-center gap-3 rounded-[14px] px-3.5 py-[11px] text-left transition-transform duration-200 hover:scale-[1.012] hover:shadow-[0_8px_20px_rgb(31_45_65/0.1)]"
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-[rgb(10_102_194/0.09)] text-[11px] font-bold text-accent">
+                    {c.angles.length || "–"}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-semibold">
+                      {c.name}
+                    </span>
+                    <span className="block text-[11.5px] text-ink-3">
+                      {c.meta}
+                    </span>
+                  </span>
+                </ComposeLink>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-3 flex gap-2">
+            <ComposeLink
+              seg="transcript"
+              className="rounded-full border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.7)] px-3.5 py-[7px] text-[11.5px] font-semibold transition-transform hover:scale-[1.04]"
+            >
+              Paste transcript
+            </ComposeLink>
+            <Link
+              href="/transcripts"
+              className="rounded-full border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.7)] px-3.5 py-[7px] text-[11.5px] font-semibold transition-transform hover:scale-[1.04]"
+            >
+              Upload audio
+            </Link>
           </div>
-        </aside>
+        </section>
+
+        {/* ── the queue ─────────────────────────────────────────── */}
+        <section className="glass rounded-[20px] px-[22px] py-[18px]">
+          <div className="mb-2.5 flex items-baseline gap-2">
+            <span className="text-[15px] font-bold">Queue</span>
+            <span className="text-[11.5px] text-ink-3">
+              {queued.length === 0
+                ? "nothing waiting"
+                : `${queued.length} ready to post`}
+            </span>
+            <div className="flex-1" />
+            <Link
+              href="/queue"
+              className="text-[12px] font-semibold text-accent hover:underline"
+            >
+              Open queue →
+            </Link>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {queued.map((d) => (
+              <Link
+                key={d.id}
+                href={`/brief/${d.briefId}`}
+                className="glass-inner flex items-center gap-2.5 rounded-[13px] px-3 py-2.5"
+              >
+                <span className="shrink-0 rounded-full bg-[rgb(10_102_194/0.09)] px-2.5 py-[5px] text-[10.5px] font-bold text-accent">
+                  {d.plannedFor ? slotLabel(d.plannedFor) : "READY"}
+                </span>
+                <span className="truncate text-[12.5px] font-semibold">
+                  {draftTitle(d)}
+                </span>
+              </Link>
+            ))}
+            <ComposeLink
+              seg="news"
+              className="flex items-center justify-center rounded-[13px] border-[1.5px] border-dashed border-[rgb(27_36_48/0.18)] px-3 py-2.5 text-[12px] text-ink-3 transition-colors hover:bg-[rgb(255_255_255/0.5)]"
+            >
+              + Draft from today&apos;s news
+            </ComposeLink>
+          </div>
+        </section>
       </div>
     </div>
   );
 }
 
-function StatTile({ label, value }: { label: string; value: number }) {
+function Stat({ value, label }: { value: number; label: string }) {
   return (
-    <div className="card-surface px-5 py-4">
-      <p className="text-xs text-ink-3">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-ink">{value}</p>
+    <div className="px-[26px] py-3.5">
+      <div className="text-[25px] font-bold tracking-[-0.02em]">{value}</div>
+      <div className="mt-px text-[11px] text-ink-2">{label}</div>
     </div>
   );
 }
 
-function formatAge(hours: number): string {
-  if (hours < 1) return "just now";
-  if (hours < 24) return `${Math.round(hours)}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
+function Divider() {
+  return <div aria-hidden className="w-px bg-[rgb(27_36_48/0.08)]" />;
+}
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function longDate(): string {
+  return new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function slotLabel(iso: string): string {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString(undefined, { weekday: "short" }).toUpperCase()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
 }

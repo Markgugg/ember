@@ -1,137 +1,181 @@
 @import "tailwindcss";
 
-/* ─── ember design tokens · v2 ──────────────────────────────────────
-   Light, clean, dashboard-first. LinkedIn blue anchor, pale-blue accents,
-   GitHub's gray scale for structure. Sans = product, serif = the AI. */
+/* ─── Current · floating-glass design tokens ────────────────────────
+   Apple-style layers on cool blue-gray, anchored to LinkedIn blue.
+   Sans = product (Instrument Sans). Serif = the AI's reasoning voice. */
 
 :root {
   color-scheme: light;
-  /* surfaces */
-  --bg-base: #f6f8fa;
-  --bg-raised: #ffffff;
-  --bg-overlay: #ffffff;
-  /* the pale blue that accentuates LinkedIn blue */
-  --bg-accent-soft: #eaf3fc;
-  --bg-accent-softer: #f3f8fd;
-  /* lines — GitHub grays */
-  --border-subtle: #d8dee4;
-  --border-strong: #afb8c1;
-  /* ink */
-  --text-primary: #1f2328;
-  --text-secondary: #57606a;
-  --text-tertiary: #8c959f;
-  /* brand */
-  --accent: #0a66c2; /* LinkedIn blue */
-  --accent-hover: #0857a6;
-  --accent-light: #58a6ff;
-  --success: #1a7f37;
+
+  --bg-base: #e9edf2;
+  --ink: #1b2430;
+  --accent: #0a66c2;
+  --accent-hover: #084d92;
+  --positive: #177245;
   --caution: #9a6700;
-  --danger: #cf222e;
-  /* elevation */
-  --shadow-card: 0 1px 3px rgb(31 35 40 / 0.06), 0 1px 2px rgb(31 35 40 / 0.04);
-  --shadow-overlay: 0 12px 32px rgb(31 35 40 / 0.14);
+  --danger: #b42318;
+
+  /* ink at opacity — the design's entire text scale */
+  --ink-60: rgb(27 36 48 / 0.6);
+  --ink-55: rgb(27 36 48 / 0.55);
+  --ink-50: rgb(27 36 48 / 0.5);
+  --ink-45: rgb(27 36 48 / 0.45);
+  --ink-40: rgb(27 36 48 / 0.4);
+
+  /* glass */
+  --glass-bg: rgb(255 255 255 / 0.55);
+  --glass-bg-soft: rgb(255 255 255 / 0.5);
+  --glass-border: rgb(255 255 255 / 0.7);
+  --glass-shadow: 0 8px 24px rgb(31 45 65 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.85);
+  --glass-shadow-lift: 0 18px 44px rgb(31 45 65 / 0.16),
+    inset 0 1px 0 rgb(255 255 255 / 0.9);
 }
 
 @theme inline {
   --color-base: var(--bg-base);
-  --color-raised: var(--bg-raised);
-  --color-overlay: var(--bg-overlay);
-  --color-accent-soft: var(--bg-accent-soft);
-  --color-accent-softer: var(--bg-accent-softer);
-  --color-line: var(--border-subtle);
-  --color-line-strong: var(--border-strong);
-  --color-ink: var(--text-primary);
-  --color-ink-2: var(--text-secondary);
-  --color-ink-3: var(--text-tertiary);
-  --color-ember: var(--accent);
-  --color-ember-hover: var(--accent-hover);
-  --color-ember-light: var(--accent-light);
-  --color-success: var(--success);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-55);
+  --color-ink-3: var(--ink-45);
+  --color-ink-4: var(--ink-40);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-positive: var(--positive);
   --color-caution: var(--caution);
   --color-danger: var(--danger);
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-instrument), -apple-system, BlinkMacSystemFont,
+    system-ui, sans-serif;
   --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
 
-  --text-xs: 0.75rem;
-  --text-xs--line-height: 1rem;
-  --text-sm: 0.875rem;
-  --text-sm--line-height: 1.25rem;
-  --text-base: 1rem;
-  --text-base--line-height: 1.5rem;
-  --text-lg: 1.25rem;
-  --text-lg--line-height: 1.75rem;
-  --text-xl: 1.5625rem;
-  --text-xl--line-height: 2rem;
-  --text-2xl: 1.9375rem;
-  --text-2xl--line-height: 2.375rem;
+  --radius-pill: 999px;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
-
-  --ease-out-quart: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in-out-smooth: cubic-bezier(0.65, 0, 0.35, 1);
-
-  --animate-rise-in: rise-in 200ms var(--ease-out-quart) both;
-  --animate-ember-breathe: ember-breathe 1.6s ease-in-out infinite;
-
-  --shadow-card: var(--shadow-card);
+  --animate-fade-up: fadeUp 0.3s ease both;
+  --animate-spring-in: springIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pulse-dot: pulseDot 1.8s infinite;
+  --animate-spin-fast: spin 0.7s linear infinite;
 }
 
-@keyframes rise-in {
+@keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-
-@keyframes ember-breathe {
-  0%,
-  100% {
-    opacity: 0.4;
-    transform: scale(0.85);
+@keyframes springIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
   }
-  50% {
+  65% {
+    opacity: 1;
+    transform: scale(1.006);
+  }
+  100% {
     opacity: 1;
     transform: scale(1);
   }
 }
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 body {
+  margin: 0;
   background: var(--bg-base);
-  color: var(--text-primary);
-  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  color: var(--ink);
+  font-family: var(--font-instrument), -apple-system, BlinkMacSystemFont,
+    system-ui, sans-serif;
+}
+
+/* ── the glass idiom ─────────────────────────────────────────────── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(1.7);
+  -webkit-backdrop-filter: blur(24px) saturate(1.7);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+.glass-soft {
+  background: var(--glass-bg-soft);
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid rgb(255 255 255 / 0.65);
+  box-shadow: 0 8px 24px rgb(31 45 65 / 0.07),
+    inset 0 1px 0 rgb(255 255 255 / 0.8);
+}
+/* a card that rises to meet the cursor */
+.glass-lift {
+  transition:
+    transform 0.3s,
+    box-shadow 0.3s;
+}
+.glass-lift:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: var(--glass-shadow-lift);
+}
+/* inner panel, sitting on glass */
+.glass-inner {
+  background: rgb(255 255 255 / 0.55);
+}
+
+/* the blue pill — primary action everywhere */
+.pill-primary {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  font-weight: 650;
+  transition:
+    transform 0.25s,
+    box-shadow 0.25s;
+}
+.pill-primary:hover:not(:disabled) {
+  transform: scale(1.04);
+  box-shadow: 0 10px 26px rgb(10 102 194 / 0.35);
+}
+.pill-primary:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.pill-tinted {
+  background: rgb(10 102 194 / 0.09);
+  color: var(--accent);
+  border-radius: 999px;
+  font-weight: 650;
 }
 
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: rgb(10 102 194 / 0.18);
 }
 
-/* card idiom: white surface, hairline border, soft shadow */
-.card-surface {
-  background: var(--bg-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+/* horizontal galleries: scroll, don't scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
-
-/* glass idiom: for sidebar/panels over the blue visual side */
-.glass-surface {
-  background: rgb(255 255 255 / 0.72);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgb(255 255 255 / 0.5);
+.no-scrollbar {
+  scrollbar-width: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -141,5 +185,8 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .glass-lift:hover {
+    transform: none;
   }
 }

@@ -19,13 +19,18 @@ export type NewInsight = Omit<
 export type NewBrief = Omit<Brief, "id" | "createdAt" | "status"> & {
   status?: BriefStatus;
 };
-export type NewDraft = Omit<Draft, "id" | "createdAt" | "status" | "editDiff">;
+export type NewDraft = Omit<
+  Draft,
+  "id" | "createdAt" | "status" | "editDiff" | "plannedFor"
+>;
 
 export interface DraftPatch {
   body?: string;
   status?: DraftStatus;
   editDiff?: { before: string; after: string } | null;
   rationale?: string;
+  /** Reminder slot only — Current never auto-posts. */
+  plannedFor?: string | null;
 }
 
 /**
@@ -41,9 +46,15 @@ export interface Repo {
 
   // transcripts
   insertTranscript(t: NewTranscript): Promise<Transcript>;
+  listTranscripts(userId: string): Promise<Transcript[]>;
+  getTranscript(id: string, userId: string): Promise<Transcript | null>;
 
   // insights
   listInsights(userId: string): Promise<Insight[]>;
+  listInsightsByTranscript(
+    transcriptId: string,
+    userId: string,
+  ): Promise<Insight[]>;
   getInsight(id: string, userId: string): Promise<Insight | null>;
   /** Highest-similarity insight above threshold, or null. Dedupe path (F3). */
   findSimilarInsight(
@@ -64,6 +75,7 @@ export interface Repo {
   restoreInsight(insight: Insight): Promise<void>;
 
   // discourse (shared)
+  getDiscourseItem(id: string): Promise<DiscourseItem | null>;
   latestSnapshot(): Promise<DiscourseItem[]>;
   insertSnapshot(
     items: Omit<DiscourseItem, "id">[],
@@ -84,6 +96,7 @@ export interface Repo {
 
   // drafts
   insertDrafts(drafts: NewDraft[]): Promise<Draft[]>;
+  listDrafts(userId: string): Promise<Draft[]>;
   getDraft(id: string, userId: string): Promise<Draft | null>;
   updateDraft(
     id: string,

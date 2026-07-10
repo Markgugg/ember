@@ -48,14 +48,14 @@ export function BriefView({ data }: { data: BriefViewData }) {
 
   if (!primary) {
     return (
-      <div className="mx-auto max-w-[640px] px-6 py-24">
+      <div className="mx-auto max-w-[640px] px-8 pt-[120px]">
         <AiLine size="lg">This brief lost its drafts. Start a fresh one?</AiLine>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-[720px] animate-rise-in px-6 py-16">
+    <div className="mx-auto w-full max-w-[720px] animate-fade-up px-8 pb-16 pt-[100px]">
       {/* 1 — the intersection, stated */}
       {data.rationale && (
         <AiLine size="xl" className="mb-3">

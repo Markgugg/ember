@@ -6,20 +6,28 @@ import { useRouter } from "next/navigation";
 export interface StreamLine {
   stage: string;
   line: string;
+  briefId?: string;
 }
 
 export interface SessionRequest {
   transcriptText?: string;
   source?: "voice" | "paste" | "upload";
+  transcriptId?: string;
   insightId?: string;
+  discourseItemId?: string;
   topicHint?: string;
 }
 
+export interface StreamOptions {
+  /** Push to /brief/:id on completion. False when a sheet renders the draft inline. */
+  navigateOnDone?: boolean;
+}
+
 /**
- * F8 client — POST /api/session, consume SSE, surface lines as they land.
- * On `done`, navigates to the brief. On `error`, exposes retry state.
+ * POST /api/session and consume the SSE reasoning stream. Lines land as each
+ * pipeline stage truly completes; the terminal `done` event carries the brief id.
  */
-export function useSessionStream() {
+export function useSessionStream({ navigateOnDone = true }: StreamOptions = {}) {
   const [lines, setLines] = useState<StreamLine[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -64,9 +72,14 @@ export function useSessionStream() {
           for (const raw of events) {
             const data = raw.replace(/^data: /, "").trim();
             if (!data) continue;
-            const event = JSON.parse(data) as StreamLine & { briefId?: string };
+            const event = JSON.parse(data) as StreamLine;
             if (event.stage === "done" && event.briefId) {
-              router.push(`/brief/${event.briefId}`);
+              if (navigateOnDone) {
+                router.push(`/brief/${event.briefId}`);
+                return;
+              }
+              setLines((l) => [...l, event]);
+              setStreaming(false);
               return;
             }
             if (event.stage === "error") {
@@ -78,7 +91,6 @@ export function useSessionStream() {
             setLines((l) => [...l, event]);
           }
         }
-        // stream closed without done/error
         setFailed(true);
         setStreaming(false);
       } catch (err) {
@@ -91,7 +103,7 @@ export function useSessionStream() {
         setStreaming(false);
       }
     },
-    [router],
+    [router, navigateOnDone],
   );
 
   return { lines, streaming, failed, run, cancel };

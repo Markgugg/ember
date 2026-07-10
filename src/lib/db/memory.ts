@@ -75,11 +75,25 @@ export const memoryRepo: Repo = {
     state().transcripts.set(row.id, row);
     return row;
   },
+  async listTranscripts(userId) {
+    return [...state().transcripts.values()]
+      .filter((t) => t.userId === userId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+  async getTranscript(id, userId) {
+    const t = state().transcripts.get(id);
+    return t && t.userId === userId ? t : null;
+  },
 
   async listInsights(userId) {
     return [...state().insights.values()]
       .filter((i) => i.userId === userId)
       .sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt));
+  },
+  async listInsightsByTranscript(transcriptId, userId) {
+    return [...state().insights.values()].filter(
+      (i) => i.userId === userId && i.transcriptId === transcriptId,
+    );
   },
   async getInsight(id, userId) {
     const i = state().insights.get(id);
@@ -131,6 +145,9 @@ export const memoryRepo: Repo = {
     state().insights.set(insight.id, insight);
   },
 
+  async getDiscourseItem(id) {
+    return state().discourse.find((d) => d.id === id) ?? null;
+  },
   async latestSnapshot() {
     const s = state();
     if (s.discourse.length === 0) return [];
@@ -209,11 +226,18 @@ export const memoryRepo: Repo = {
         id: randomUUID(),
         status: "suggested",
         editDiff: null,
+        plannedFor: null,
         createdAt: now(),
       }),
     );
     for (const r of rows) state().drafts.set(r.id, r);
     return rows;
+  },
+  async listDrafts(userId) {
+    const s = state();
+    return [...s.drafts.values()]
+      .filter((d) => s.briefs.get(d.briefId)?.userId === userId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },
   async getDraft(id, userId) {
     const s = state();
