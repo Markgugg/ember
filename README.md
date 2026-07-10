@@ -6,6 +6,26 @@ Current reads what the AI world is arguing about right now, mines the claims out
 
 It only writes when they meet. If nothing you've said connects to what the world is arguing about, Current tells you so instead of inventing an opinion for you.
 
+## Quickstart on a new machine
+
+1. Open Terminal.
+2. Clone it:
+   ```bash
+   git clone https://github.com/Markgugg/ember.git
+   cd ember
+   ```
+3. Copy two files onto this machine by hand — AirDrop, USB, whatever — never git:
+   - `.env.local`
+   - `.ember-dev-db.json` (optional — skip it to start fresh instead of carrying your data over)
+4. Install and run:
+   ```bash
+   npm install
+   npm run dev
+   ```
+5. Open [http://localhost:3003](http://localhost:3003).
+
+Same app, same data, same LinkedIn connection.
+
 ## The two sources
 
 **Today in AI** — a live feed pulled from Hacker News at request time (front page + the last 24 hours of AI stories, ranked by engagement). With an Anthropic key, stories are clustered into *tensions*: one side vs the other. Refreshes every few minutes.
@@ -50,19 +70,6 @@ the *vectors* are a local bag-of-words. Neither one blocks the other.
 npm test           # unit tests: provenance gate, scoring, banned phrases
 npm run build      # production build
 ```
-
-### Moving to another machine
-
-Two files are gitignored on purpose and have to travel by hand (AirDrop, USB —
-never git):
-
-1. `.env.local` — every key above, including the LinkedIn client secret.
-2. `.ember-dev-db.json` — the local dev store: your profile, transcripts,
-   drafts, and the LinkedIn connection. Skip it to start clean (you'll
-   re-onboard and reconnect LinkedIn); copy it to carry everything over.
-
-Then `npm install && npm run dev`. The LinkedIn redirect needs no change —
-it's registered for `localhost:3003`, which is wherever the app runs.
 
 ## Posting to LinkedIn
 
