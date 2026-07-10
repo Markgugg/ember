@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getRepo } from "@/lib/db";
 import { getUserId } from "@/lib/identity";
 import { draftTitle } from "@/lib/view";
+import type { Draft } from "@/lib/types";
 import { linkedinConfigured, linkedinReady } from "@/lib/linkedin";
 import { ComposeLink } from "@/components/composer/ComposeLink";
 import { QueueDay } from "@/components/queue/QueueDay";
@@ -33,7 +34,7 @@ export default async function QueuePage({
 
   const days = nextSevenDays();
   const planned = unposted.filter((d) => d.plannedFor);
-  const unplanned = unposted.filter((d) => !d.plannedFor);
+  const unplanned = readyToPost(drafts);
 
   return (
     <div className="mx-auto flex max-w-[1200px] animate-fade-up flex-col gap-[18px] px-8 pb-12 pt-[100px]">
@@ -191,6 +192,37 @@ export default async function QueuePage({
       </div>
     </div>
   );
+}
+
+/**
+ * One row per brief, not one per angle.
+ *
+ * Every session writes three drafts so you can compare angles, but the queue
+ * is a list of posts you intend to publish. Showing all three made a single
+ * idea look like three pieces of work, and once you planned one, its two
+ * siblings still sat here as if they were still waiting.
+ *
+ * So: a brief with any planned or posted draft is done and disappears from
+ * this list. Otherwise it contributes exactly one row — the angle Current
+ * recommended. The others stay reachable through "Other angles" on the brief.
+ */
+function readyToPost(drafts: Draft[]): Draft[] {
+  const spokenFor = new Set(
+    drafts
+      .filter((d) => d.plannedFor || d.status === "posted")
+      .map((d) => d.briefId),
+  );
+
+  const byBrief = new Map<string, Draft>();
+  for (const draft of drafts) {
+    if (spokenFor.has(draft.briefId)) continue;
+    if (draft.status === "posted" || draft.plannedFor) continue;
+    const held = byBrief.get(draft.briefId);
+    if (!held || (draft.isPrimary && !held.isPrimary)) {
+      byBrief.set(draft.briefId, draft);
+    }
+  }
+  return [...byBrief.values()];
 }
 
 /* ── date helpers ─────────────────────────────────────────────────── */

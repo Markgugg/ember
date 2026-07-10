@@ -315,8 +315,13 @@ export async function loadBriefDraft(briefId: string): Promise<{
   angle: string;
   rationale: string;
   sourceNote: string;
-  /** The article the post cites, and whether we can carry its image. */
-  link: { url: string; domain: string; hasImage: boolean } | null;
+  /**
+   * The article the post cites, and the shape it will take.
+   *  "card"  — LinkedIn crawls it and renders image + title + domain together
+   *  "image" — its crawler is blocked, so we upload the image, link in text
+   *  "plain" — no image anywhere, a bare link card
+   */
+  link: { url: string; domain: string; shape: "card" | "image" | "plain" } | null;
 } | null> {
   const repo = await getRepo();
   const userId = await getUserId();
@@ -335,12 +340,18 @@ export async function loadBriefDraft(briefId: string): Promise<{
   const attached = sourceLink(bundle.discourseItem);
   const source = bundle.discourseItem?.sources?.[0];
 
-  // Cached from the story-preview pane, so this is usually free.
-  let hasImage = false;
+  // Both are cached from the story-preview pane, so this is usually free.
+  let shape: "card" | "image" | "plain" = "plain";
   if (attached) {
-    const { fetchArticlePreview } = await import("@/lib/preview");
-    const preview = await fetchArticlePreview(attached.url);
-    hasImage = Boolean(preview.fetched && preview.image);
+    const { fetchArticlePreview, linkedinCanRenderCard } = await import(
+      "@/lib/preview"
+    );
+    if (await linkedinCanRenderCard(attached.url)) {
+      shape = "card";
+    } else {
+      const preview = await fetchArticlePreview(attached.url);
+      shape = preview.fetched && preview.image ? "image" : "plain";
+    }
   }
 
   return {
@@ -350,7 +361,7 @@ export async function loadBriefDraft(briefId: string): Promise<{
     rationale: primary.rationale,
     sourceNote: parts.join(" + "),
     link: attached
-      ? { url: attached.url, domain: source?.domain ?? "link", hasImage }
+      ? { url: attached.url, domain: source?.domain ?? "link", shape }
       : null,
   };
 }

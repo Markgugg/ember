@@ -60,9 +60,13 @@ export function ComposerSheet() {
     angle: string;
     rationale: string;
     sourceNote: string;
-    link: { url: string; domain: string } | null;
+    link: { url: string; domain: string; shape: "card" | "image" | "plain" } | null;
   } | null>(null);
   const [refusedBriefId, setRefusedBriefId] = useState<string | null>(null);
+  // Filled after the draft arrives, never during render: `new Date()` on the
+  // server and on the client disagree, and React calls that a hydration error.
+  const [slot, setSlot] = useState("");
+  const [scheduling, setScheduling] = useState(false);
   const [copied, setCopied] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -125,10 +129,27 @@ export function ComposerSheet() {
   useEffect(() => {
     if (!doneBriefId || draft || refusedBriefId) return;
     void loadBriefDraft(doneBriefId).then((d) => {
-      if (d) setDraft(d);
-      else setRefusedBriefId(doneBriefId); // no drafts = Current refused
+      if (d) {
+        setDraft(d);
+        setSlot(defaultSlot());
+      } else {
+        setRefusedBriefId(doneBriefId); // no drafts = Current refused
+      }
     });
   }, [doneBriefId, draft, refusedBriefId]);
+
+  /**
+   * Choosing a different source clears the last result. Without this a refusal
+   * stayed pinned to the right pane, so you couldn't read the next story you
+   * clicked — the pane told you "nothing here is worth your name" over a story
+   * it had never looked at.
+   */
+  const pickStory = (id: string) => {
+    setStoryId(storyId === id ? null : id);
+    setRefusedBriefId(null);
+    setDraft(null);
+    setPosted(false);
+  };
 
   const story = useMemo(
     () => sources?.stories.find((s) => s.id === storyId) ?? null,
@@ -327,7 +348,7 @@ export function ComposerSheet() {
                         title={s.title}
                         meta={`${s.domain}${s.buzz ? ` · ${s.buzz}` : ""}`}
                         selected={storyId === s.id}
-                        onClick={() => setStoryId(storyId === s.id ? null : s.id)}
+                        onClick={() => pickStory(s.id)}
                       />
                     ))}
                   </div>
@@ -353,6 +374,7 @@ export function ComposerSheet() {
                         onClick={() => {
                           setConversationId(conversationId === c.id ? null : c.id);
                           setPasted("");
+                          setRefusedBriefId(null);
                         }}
                       />
                     ))}
@@ -495,20 +517,30 @@ export function ComposerSheet() {
                   >
                     <LinkIcon size={13} className="shrink-0 text-accent" aria-hidden />
                     <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-2">
-                      {draft.link.hasImage ? (
+                      {draft.link.shape === "card" && (
                         <>
-                          Posts with{" "}
+                          LinkedIn will card{" "}
                           <span className="font-semibold text-ink">
                             {draft.link.domain}
                           </span>
-                          &apos;s image, link in the text.
+                          : image, headline, and link together.
                         </>
-                      ) : (
+                      )}
+                      {draft.link.shape === "image" && (
                         <>
                           <span className="font-semibold text-ink">
                             {draft.link.domain}
                           </span>{" "}
-                          has no image, so this posts as a link card.
+                          blocks LinkedIn&apos;s crawler, so we attach its image
+                          and put the link in the text.
+                        </>
+                      )}
+                      {draft.link.shape === "plain" && (
+                        <>
+                          <span className="font-semibold text-ink">
+                            {draft.link.domain}
+                          </span>{" "}
+                          has no image, so this posts as a plain link card.
                         </>
                       )}
                     </span>
@@ -528,18 +560,41 @@ export function ComposerSheet() {
                   >
                     Other angles
                   </Link>
+                  {/* Schedule from here, not only from the queue: picking the
+                      time is part of finishing the post, not a second errand. */}
+                  <input
+                    type="datetime-local"
+                    value={slot}
+                    onChange={(e) => setSlot(e.target.value)}
+                    aria-label="Schedule this post"
+                    className="rounded-full border border-[rgb(27_36_48/0.12)] bg-white px-3 py-[7px] text-[12px] text-ink outline-none focus:border-accent"
+                  />
                   <button
                     type="button"
+                    disabled={!slot || scheduling}
                     onClick={() => {
-                      void planDraft(
-                        draft.draftId,
-                        new Date(Date.now() + 86_400_000).toISOString(),
-                      );
-                      toast({ message: "Planned for tomorrow — it's a reminder, not an auto-post." });
+                      const when = new Date(slot);
+                      if (Number.isNaN(when.getTime())) {
+                        toast({ message: "Pick a valid date and time.", tone: "danger" });
+                        return;
+                      }
+                      setScheduling(true);
+                      void planDraft(draft.draftId, when.toISOString())
+                        .then(() =>
+                          toast({
+                            message: sources?.linkedinConnected
+                              ? `Scheduled for ${when.toLocaleString()}. It posts itself.`
+                              : `Scheduled for ${when.toLocaleString()}. Connect LinkedIn and it posts itself.`,
+                          }),
+                        )
+                        .catch(() =>
+                          toast({ message: "Couldn't schedule that.", tone: "danger" }),
+                        )
+                        .finally(() => setScheduling(false));
                     }}
-                    className="rounded-full bg-[rgb(27_36_48/0.06)] px-4 py-[9px] text-[12.5px] font-semibold text-ink transition-colors hover:bg-[rgb(27_36_48/0.12)]"
+                    className="rounded-full bg-[rgb(27_36_48/0.06)] px-4 py-[9px] text-[12.5px] font-semibold text-ink transition-colors hover:bg-[rgb(27_36_48/0.12)] disabled:opacity-60"
                   >
-                    Add to queue
+                    {scheduling ? "Scheduling…" : "Schedule"}
                   </button>
                   <button
                     type="button"
@@ -757,4 +812,13 @@ function EmptyNote({ children }: { children: React.ReactNode }) {
       {children}
     </p>
   );
+}
+
+/** Tomorrow 09:00 local, in the format <input type="datetime-local"> wants. */
+function defaultSlot(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(9, 0, 0, 0);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

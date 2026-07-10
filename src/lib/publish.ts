@@ -17,22 +17,29 @@ export type PublishResult =
  * there is then nothing honest to link to.
  */
 /**
- * Fetch the article's own Open Graph image and upload it as a LinkedIn asset.
+ * Decide how the source appears on the post, and prepare it.
  *
- * LinkedIn would normally build the card itself, but its crawler is 403'd by
- * Cloudflare-fronted publishers, which is why posts came out as a bare
- * title-and-domain box. We can read the page (we present as a browser), so we
- * hand LinkedIn the publisher's own artwork rather than inventing one.
+ * You cannot have both an image and a link card: shareMediaCategory is one
+ * value. But an ARTICLE card *contains* an image whenever LinkedIn can crawl
+ * the page, which is the richer result — picture, headline, and domain in one
+ * unit, all clickable. So we only take the image into our own hands when
+ * LinkedIn's crawler is blocked and the card would come out empty.
  *
- * Returns null on any failure. The caller falls back to the plain card: a post
- * without a picture is a smaller loss than a post that never went out.
+ * Returns null to mean "let LinkedIn render the card". Any failure along the
+ * upload path also returns null: a post that falls back to a plain card beats
+ * a post that never went out.
  */
 async function attachArticleImage(
   profile: Profile,
   articleUrl: string,
 ): Promise<string | null> {
   try {
-    const { fetchArticlePreview, fetchImageBytes } = await import("@/lib/preview");
+    const { fetchArticlePreview, fetchImageBytes, linkedinCanRenderCard } =
+      await import("@/lib/preview");
+
+    // LinkedIn can do better than we can: its card carries the link too.
+    if (await linkedinCanRenderCard(articleUrl)) return null;
+
     const preview = await fetchArticlePreview(articleUrl);
     if (!preview.fetched || !preview.image) return null;
 
