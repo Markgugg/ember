@@ -24,8 +24,12 @@ It only writes when they meet. If nothing you've said connects to what the world
 
 ```bash
 npm install
-npm run dev        # → http://localhost:3000
+npm run dev        # → http://localhost:3003
 ```
+
+The port is pinned to 3003 because the LinkedIn app's OAuth redirect URL is
+registered against it — on a fresh machine `next dev` would otherwise grab
+3000 and the "Sign in with LinkedIn" round-trip would fail.
 
 **Zero keys required.** With no `.env.local`, Current runs in fixture mode: deterministic heuristic mining and embedding-based matching, backed by an in-memory store. The news feed is **live either way** — the Hacker News pull needs no key. The whole loop works, including the refusal.
 
@@ -46,6 +50,19 @@ the *vectors* are a local bag-of-words. Neither one blocks the other.
 npm test           # unit tests: provenance gate, scoring, banned phrases
 npm run build      # production build
 ```
+
+### Moving to another machine
+
+Two files are gitignored on purpose and have to travel by hand (AirDrop, USB —
+never git):
+
+1. `.env.local` — every key above, including the LinkedIn client secret.
+2. `.ember-dev-db.json` — the local dev store: your profile, transcripts,
+   drafts, and the LinkedIn connection. Skip it to start clean (you'll
+   re-onboard and reconnect LinkedIn); copy it to carry everything over.
+
+Then `npm install && npm run dev`. The LinkedIn redirect needs no change —
+it's registered for `localhost:3003`, which is wherever the app runs.
 
 ## Posting to LinkedIn
 
