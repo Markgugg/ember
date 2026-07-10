@@ -47,7 +47,10 @@ export async function GET(req: NextRequest) {
   // reset
   const res = NextResponse.redirect(new URL("/welcome", req.url));
   res.cookies.delete(ANON_COOKIE);
-  if (current) {
+  // Only stash on the FIRST reset. Browsing after a reset mints a throwaway
+  // id, so a second reset would overwrite the stash with that empty identity
+  // and strand the real account for good.
+  if (current && !previous) {
     res.cookies.set(PREV_COOKIE, current, {
       httpOnly: true,
       sameSite: "lax",
