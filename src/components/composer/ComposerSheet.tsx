@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Check, FileUp, Link2 as LinkIcon, X } from "lucide-react";
 import { useSessionStream } from "@/components/session/useSessionStream";
+import { StoryPreviewPane } from "@/components/composer/StoryPreviewPane";
 import { Recorder } from "@/components/session/Recorder";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -470,11 +471,15 @@ export function ComposerSheet() {
               <RefusedPane briefId={refusedBriefId} onRetry={() => setRefusedBriefId(null)} />
             ) : streaming || lines.length > 0 ? (
               <ReasoningPane lines={lines} streaming={streaming} failed={failed} />
+            ) : storyId ? (
+              // Before drafting, the pane earns its space: it shows what the
+              // selected story actually says, so the choice isn't blind.
+              <StoryPreviewPane storyId={storyId} />
             ) : (
               <div className="flex flex-1 items-center justify-center rounded-2xl border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.65)]">
                 <p className="px-10 text-center text-[13px] leading-relaxed text-ink-3">
-                  Your draft appears here — built from what you said, aimed at
-                  what the world is arguing about today.
+                  Pick a story to see what it says, or write from a conversation
+                  and Current will find today&apos;s best match.
                 </p>
               </div>
             )}

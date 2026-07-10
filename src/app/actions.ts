@@ -93,6 +93,61 @@ export interface ComposerSources {
   hasClaims: boolean;
 }
 
+export interface StoryPreview {
+  id: string;
+  /** What Current thinks the argument is. */
+  title: string;
+  summary: string;
+  stanceA: string | null;
+  stanceB: string | null;
+  buzz: string;
+  discussionUrl: string;
+  /** The article itself, as LinkedIn will see it. Null for HN self-posts. */
+  article: {
+    url: string;
+    domain: string;
+    title: string | null;
+    description: string | null;
+    image: string | null;
+    siteName: string | null;
+    fetched: boolean;
+  } | null;
+}
+
+/**
+ * The right pane while you're still choosing: what this story actually says.
+ * The article metadata is the same Open Graph data LinkedIn reads for its
+ * preview card, so what you see here is what your post will carry.
+ */
+export async function loadStoryPreview(
+  storyId: string,
+): Promise<StoryPreview | null> {
+  const repo = await getRepo();
+  const item = await repo.getDiscourseItem(storyId);
+  if (!item) return null;
+
+  const source = item.sources[0];
+  const articleUrl = source?.articleUrl ?? null;
+  const { sanitizePunctuation } = await import("@/lib/ai/style");
+
+  let article: StoryPreview["article"] = null;
+  if (articleUrl) {
+    const { fetchArticlePreview } = await import("@/lib/preview");
+    article = await fetchArticlePreview(articleUrl);
+  }
+
+  return {
+    id: item.id,
+    title: sanitizePunctuation(item.title),
+    summary: sanitizePunctuation(item.summary),
+    stanceA: item.stanceA,
+    stanceB: item.stanceB,
+    buzz: source?.meta ?? "",
+    discussionUrl: source?.url ?? "https://news.ycombinator.com/",
+    article,
+  };
+}
+
 /** Everything the composer sheet needs to let you pick a story and a conversation. */
 export async function loadComposerSources(): Promise<ComposerSources> {
   const userId = await getUserId();
