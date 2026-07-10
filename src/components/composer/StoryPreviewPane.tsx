@@ -12,9 +12,20 @@ import { loadStoryPreview, type StoryPreview } from "@/app/actions";
  * which is the same data LinkedIn fetches when it builds the preview on your
  * post. So this doubles as a rehearsal of what you're about to publish.
  */
+/**
+ * LinkedIn renders the big hero card at roughly 1.91:1 and collapses anything
+ * squarer into a small side thumbnail. Measured, not guessed: a 1500x1000
+ * image (1.50) came back as a thumbnail while 1200x630 (1.90) did not.
+ */
+const HERO_RATIO = 1.75;
+
 export function StoryPreviewPane({ storyId }: { storyId: string }) {
   const [preview, setPreview] = useState<StoryPreview | null>(null);
   const [loading, setLoading] = useState(true);
+  // The browser already downloaded the image to show it, so its true size is
+  // free here. Most pages don't declare og:image:width, and measuring it on
+  // the server would mean fetching every image just to look at its header.
+  const [ratio, setRatio] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,6 +81,12 @@ export function StoryPreviewPane({ storyId }: { storyId: string }) {
           <img
             src={article.image}
             alt=""
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalHeight > 0) {
+                setRatio(img.naturalWidth / img.naturalHeight);
+              }
+            }}
             className="h-[170px] w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
           <span className="absolute bottom-2.5 right-2.5 flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[10.5px] font-semibold text-ink shadow-sm">
@@ -148,11 +165,21 @@ export function StoryPreviewPane({ storyId }: { storyId: string }) {
               </span>
             </a>
             <p className="mt-1.5 text-[10.5px] leading-relaxed text-ink-3">
-              {article.fetched && article.image
-                ? "Your post carries this card: image, headline and link."
-                : article.fetched
-                  ? "No image on this page, so the card carries no picture."
-                  : "This site blocks preview requests, so the card may come out plain."}
+              {article.fetched && article.image ? (
+                ratio !== null && ratio < HERO_RATIO ? (
+                  <>
+                    Your post carries this card. The image is{" "}
+                    {ratio.toFixed(2)}:1, squarer than LinkedIn&apos;s 1.91:1,
+                    so it shows as a small thumbnail beside the headline.
+                  </>
+                ) : (
+                  "Your post carries this card: image, headline and link."
+                )
+              ) : article.fetched ? (
+                "No image on this page, so the card carries no picture."
+              ) : (
+                "This site blocks preview requests, so the card may come out plain."
+              )}
             </p>
           </div>
         ) : (
