@@ -130,16 +130,26 @@ function WelcomeFlow() {
   }, [step, scanDone, pulseDone]);
 
   /** Re-run the drafter with the member's own pasted profile text. */
+  const [pasteFilled, setPasteFilled] = useState(false);
   const redraftFromPaste = async () => {
     if (pastedProfile.trim().length < 40) return;
     setRedrafting(true);
     try {
-      const scan = await scanLinkedinProfile(linkedinUrl, pastedProfile);
+      // The URL may be empty when OAuth verified the member — pass the
+      // verified name through or the action's validation rejects the call.
+      const scan = await scanLinkedinProfile(
+        urlValid ? linkedinUrl : "",
+        pastedProfile,
+        verifiedName ?? undefined,
+      );
       setHeadline(scan.headline);
       setAudience(scan.audience);
       setBeats(scan.beats);
       if (!verifiedName && scan.name) setDisplayName(scan.name);
       setProfileFetched(true);
+      setPasteFilled(true);
+    } catch {
+      setUrlError(null); // not a URL problem; keep the step calm
     } finally {
       setRedrafting(false);
     }
@@ -313,13 +323,13 @@ function WelcomeFlow() {
               </p>
 
               <div className="flex max-h-[58vh] flex-col gap-4 overflow-y-auto pr-1">
-                {!profileFetched && (
-                  <ReviewCard title="Make this yours in 5 seconds">
+                {(!profileFetched || pasteFilled) && (
+                  <ReviewCard title="Paste your About — Current fills out the rest">
                     <p className="mb-2.5 text-[12px] leading-relaxed text-ink-2">
-                      LinkedIn blocks apps from reading profiles. Open your
-                      profile, copy your headline and About section, paste it
-                      here — Current will re-draft everything below from your
-                      real words.
+                      LinkedIn blocks apps from reading profiles, so this is
+                      the honest shortcut: copy your headline and About
+                      section, drop it here, and everything below fills out
+                      from your real words.
                     </p>
                     <textarea
                       value={pastedProfile}
@@ -327,14 +337,22 @@ function WelcomeFlow() {
                       placeholder="Paste your LinkedIn headline + About section…"
                       className={`${field} min-h-[86px] resize-none`}
                     />
-                    <button
-                      type="button"
-                      onClick={() => void redraftFromPaste()}
-                      disabled={redrafting || pastedProfile.trim().length < 40}
-                      className="pill-primary mt-2.5 px-4 py-2 text-[12px] disabled:opacity-45"
-                    >
-                      {redrafting ? "Re-drafting…" : "Re-draft from this"}
-                    </button>
+                    <div className="mt-2.5 flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => void redraftFromPaste()}
+                        disabled={redrafting || pastedProfile.trim().length < 40}
+                        className="pill-primary px-4 py-2 text-[12px] disabled:opacity-45"
+                      >
+                        {redrafting ? "Filling it out…" : "Fill out the rest"}
+                      </button>
+                      {pasteFilled && !redrafting && (
+                        <span className="flex items-center gap-1 text-[12px] font-medium text-positive">
+                          <Check size={13} aria-hidden />
+                          Filled from your words — review below.
+                        </span>
+                      )}
+                    </div>
                   </ReviewCard>
                 )}
 
@@ -460,14 +478,14 @@ function WelcomeFlow() {
           }}
         />
 
-        <div className="relative flex w-full max-w-md flex-col items-center gap-6 px-12">
-          <h2 className="text-center text-[27px] font-bold leading-tight tracking-[-0.02em] text-white">
+        <div className="relative flex w-full max-w-[560px] flex-col gap-4 px-10">
+          <h2 className="mb-2 text-[31px] font-bold leading-[1.14] tracking-[-0.02em] text-white">
             Write the posts <span className="text-[#bfdcf7]">only you</span>{" "}
             could have written
           </h2>
 
           <div
-            className="w-full rounded-[20px] p-5"
+            className="w-[86%] self-start rounded-[20px] p-5"
             style={{
               background: "rgb(255 255 255 / 0.14)",
               backdropFilter: "blur(20px) saturate(1.6)",
@@ -498,8 +516,19 @@ function WelcomeFlow() {
             )}
           </div>
 
+          {/* the intersection, drawn: two sources, light where they cross */}
+          <div className="flex items-center gap-2.5 self-center py-0.5" aria-hidden>
+            <span className="h-px w-16 bg-gradient-to-r from-transparent to-white/45" />
+            <span className="relative flex h-8 w-11 items-center justify-center">
+              <span className="absolute left-0 size-7 rounded-full border border-white/50" />
+              <span className="absolute right-0 size-7 rounded-full border border-[#bfdcf7]/60" />
+              <span className="size-1.5 rounded-full bg-white shadow-[0_0_14px_5px_rgb(255_255_255/0.55)]" />
+            </span>
+            <span className="h-px w-16 bg-gradient-to-l from-transparent to-white/45" />
+          </div>
+
           <div
-            className="w-full rounded-[20px] p-5"
+            className="w-[86%] self-end rounded-[20px] p-5"
             style={{
               background: "rgb(255 255 255 / 0.14)",
               backdropFilter: "blur(20px) saturate(1.6)",
@@ -527,7 +556,21 @@ function WelcomeFlow() {
             </div>
           </div>
 
-          <p className="text-center text-[11.5px] text-white/60">
+          {/* the refusal — the part competitors don't have */}
+          <div
+            className="w-[72%] self-start rounded-[16px] px-4 py-3"
+            style={{
+              background: "rgb(8 40 76 / 0.32)",
+              border: "1px dashed rgb(255 255 255 / 0.28)",
+            }}
+          >
+            <p className="font-serif text-[12.5px] leading-snug text-white/80">
+              And on the days nothing you&apos;ve said meets the moment, it
+              writes nothing. That&apos;s the point.
+            </p>
+          </div>
+
+          <p className="mt-1 self-center text-[11.5px] text-white/60">
             live AI news × your conversations — posts only where they meet
           </p>
         </div>

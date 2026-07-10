@@ -129,9 +129,19 @@ export function CurrentField({ className = "" }: { className?: string }) {
       ctx.globalCompositeOperation = "lighter";
 
       // Live geometry per source, reused for the crossing pass below.
-      const live = SOURCES.map((source) => {
-        const cx = source.x * width * dpr + pointer.current.x * source.parallax * dpr;
-        const cy = source.y * height * dpr + pointer.current.y * source.parallax * dpr;
+      const t = time * 0.001;
+      const live = SOURCES.map((source, i) => {
+        // A slow Lissajous drift keeps the interference evolving even when
+        // the pointer is still; the periods are irrational-ish so the
+        // pattern never visibly loops.
+        const driftX = Math.sin(t * (0.047 + i * 0.013) + i * 2.4) * 26;
+        const driftY = Math.cos(t * (0.036 + i * 0.017) + i * 1.3) * 20;
+        const cx =
+          source.x * width * dpr +
+          (pointer.current.x * source.parallax + driftX) * dpr;
+        const cy =
+          source.y * height * dpr +
+          (pointer.current.y * source.parallax + driftY) * dpr;
         const maxR = diag * source.reach;
         const rings: { radius: number; alpha: number; progress: number }[] = [];
         for (let i = 0; i < RINGS_PER_SOURCE; i++) {
@@ -149,7 +159,7 @@ export function CurrentField({ className = "" }: { className?: string }) {
 
         // A soft bloom marks the origin without drawing a hard dot.
         const bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, 190 * dpr);
-        bloom.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.085)`);
+        bloom.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.1)`);
         bloom.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
         ctx.fillStyle = bloom;
         ctx.beginPath();
@@ -159,7 +169,7 @@ export function CurrentField({ className = "" }: { className?: string }) {
         for (const ring of rings) {
           ctx.beginPath();
           ctx.arc(cx, cy, ring.radius, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${ring.alpha * 0.15})`;
+          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${ring.alpha * 0.17})`;
           ctx.lineWidth = ringWidth(ring.progress, dpr);
           ctx.stroke();
         }
@@ -184,7 +194,7 @@ export function CurrentField({ className = "" }: { className?: string }) {
               if (px < -radius || py < -radius) continue;
               if (px > canvas.width + radius || py > canvas.height + radius) continue;
               const node = ctx.createRadialGradient(px, py, 0, px, py, radius);
-              node.addColorStop(0, `rgba(226, 240, 255, ${0.5 * strength})`);
+              node.addColorStop(0, `rgba(230, 242, 255, ${0.6 * strength})`);
               node.addColorStop(0.35, `rgba(191, 220, 247, ${0.22 * strength})`);
               node.addColorStop(1, "rgba(191, 220, 247, 0)");
               ctx.fillStyle = node;

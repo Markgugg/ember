@@ -37,7 +37,7 @@ export function StoryCard({
   return (
     <div
       style={width ? { width, flex: "none" } : undefined}
-      className="glass glass-lift group flex flex-col rounded-[20px] p-2.5 pb-3.5 text-left"
+      className="glass glass-lift group flex snap-start flex-col rounded-[20px] p-2.5 pb-3.5 text-left"
     >
       <a
         href={readUrl}

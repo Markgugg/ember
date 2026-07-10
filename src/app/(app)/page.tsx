@@ -4,6 +4,7 @@ import { getRepo } from "@/lib/db";
 import { getUserId } from "@/lib/identity";
 import { getConversations, getStories, draftTitle, formatAge } from "@/lib/view";
 import { StoryCard, LiveBadge } from "@/components/news/StoryCard";
+import { ScrollRow } from "@/components/ui/ScrollRow";
 import { ComposeLink } from "@/components/composer/ComposeLink";
 
 export const dynamic = "force-dynamic";
@@ -79,11 +80,11 @@ export default async function Home() {
             See the full feed →
           </Link>
         </div>
-        <div className="no-scrollbar flex gap-4 overflow-x-auto pb-1.5">
-          {stories.slice(0, 6).map((s) => (
+        <ScrollRow>
+          {stories.map((s) => (
             <StoryCard key={s.id} story={s} width={280} />
           ))}
-        </div>
+        </ScrollRow>
       </section>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
