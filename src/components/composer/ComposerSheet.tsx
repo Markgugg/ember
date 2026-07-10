@@ -9,6 +9,7 @@ import { StoryPreviewPane } from "@/components/composer/StoryPreviewPane";
 import { Recorder } from "@/components/session/Recorder";
 import { useToast } from "@/components/ui/Toast";
 import {
+  addCustomStory,
   loadBriefDraft,
   loadComposerSources,
   markDraftCopied,
@@ -54,6 +55,8 @@ export function ComposerSheet() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [pasted, setPasted] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
+  const [customUrl, setCustomUrl] = useState("");
+  const [addingLink, setAddingLink] = useState(false);
 
   const [draft, setDraft] = useState<{
     draftId: string;
@@ -151,6 +154,37 @@ export function ComposerSheet() {
     setRefusedBriefId(null);
     setDraft(null);
     setPosted(false);
+  };
+
+  /**
+   * The feed is a door, not a wall: any article link becomes a pinned story.
+   * Current reads its Open Graph tags (the same data the LinkedIn card will
+   * carry), then judges it against your claims like any other story.
+   */
+  const addLink = async () => {
+    const url = customUrl.trim();
+    if (!url || addingLink) return;
+    setAddingLink(true);
+    setNotice(null);
+    try {
+      const story = await addCustomStory(url);
+      setSources((prev) =>
+        prev ? { ...prev, stories: [story, ...prev.stories] } : prev,
+      );
+      setCustomUrl("");
+      setStoryId(story.id);
+      setRefusedBriefId(null);
+      setDraft(null);
+      setPosted(false);
+    } catch (err) {
+      setNotice(
+        err instanceof Error && err.message.length < 120
+          ? err.message
+          : "Couldn't read that link. Check the URL and try again.",
+      );
+    } finally {
+      setAddingLink(false);
+    }
   };
 
   const story = useMemo(
@@ -353,6 +387,33 @@ export function ComposerSheet() {
                         onClick={() => pickStory(s.id)}
                       />
                     ))}
+                  </div>
+                )}
+                {/* Bring your own: any article link becomes a pinned story. */}
+                {sources !== null && (
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <input
+                      type="url"
+                      value={customUrl}
+                      onChange={(e) => setCustomUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void addLink();
+                        }
+                      }}
+                      placeholder="…or paste any article link"
+                      aria-label="Paste an article link to draft from"
+                      className="min-w-0 flex-1 rounded-full border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.65)] px-3.5 py-2 text-[12px] outline-none placeholder:text-ink-3 focus:border-accent"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void addLink()}
+                      disabled={!customUrl.trim() || addingLink}
+                      className="pill-tinted shrink-0 px-3.5 py-2 text-[11.5px] transition-transform hover:scale-[1.03] disabled:opacity-50"
+                    >
+                      {addingLink ? "Reading…" : "Add"}
+                    </button>
                   </div>
                 )}
               </>

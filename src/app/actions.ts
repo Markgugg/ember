@@ -9,6 +9,7 @@ import { stripVtt } from "@/lib/ai/transcribe";
 import {
   getConversations,
   getStories,
+  toStoryView,
   type ConversationView,
   type StoryView,
 } from "@/lib/view";
@@ -146,6 +147,58 @@ export async function loadStoryPreview(
     discussionUrl: source?.url ?? "https://news.ycombinator.com/",
     article,
   };
+}
+
+/**
+ * An article the member brings themselves — the feed stops being the only
+ * door. The link becomes a pinned story: previewed, judged against the
+ * member's own claims, and attached to the post exactly like a feed story.
+ *
+ * It joins the discourse store one millisecond BEHIND the current snapshot,
+ * so the composer can use it but "Today in AI" never shows it: the board is
+ * the world's conversation, not the member's reading list.
+ */
+export async function addCustomStory(rawUrl: string): Promise<StoryView> {
+  let url = rawUrl.trim();
+  if (!url) throw new Error("Paste an article link first.");
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("That doesn't look like a link Current can read.");
+  }
+
+  const { fetchArticlePreview } = await import("@/lib/preview");
+  const preview = await fetchArticlePreview(url);
+
+  const domain = parsed.hostname.replace(/^www\./, "");
+  const { sanitizePunctuation } = await import("@/lib/ai/style");
+  const title = sanitizePunctuation(preview.title ?? domain);
+  const summary = sanitizePunctuation(
+    preview.description ?? preview.title ?? `An article you brought from ${domain}.`,
+  );
+
+  const repo = await getRepo();
+  const board = await repo.latestSnapshot();
+  const snapshotAt = new Date(
+    (board.length > 0 ? new Date(board[0].snapshotAt).getTime() : Date.now()) - 1,
+  ).toISOString();
+
+  const { embedBatch } = await import("@/lib/ai/embeddings");
+  const [embedding] = await embedBatch([`${title} ${summary}`]);
+
+  const item = await repo.insertDiscourseItem({
+    snapshotAt,
+    title,
+    summary,
+    stanceA: null,
+    stanceB: null,
+    velocity: 0,
+    sources: [{ url, articleUrl: url, domain, ageHours: 0, meta: "your link" }],
+    embedding,
+  });
+  return toStoryView(item);
 }
 
 /** Everything the composer sheet needs to let you pick a story and a conversation. */

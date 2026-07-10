@@ -185,6 +185,11 @@ const rawMemoryRepo: Repo = {
     );
     return rows;
   },
+  async insertDiscourseItem(item) {
+    const row: DiscourseItem = { ...item, id: randomUUID() };
+    state().discourse.push(row);
+    return row;
+  },
 
   async insertBrief(b: NewBrief) {
     const row: Brief = {
@@ -244,6 +249,7 @@ const rawMemoryRepo: Repo = {
         mediaStyle: "card",
         editDiff: null,
         plannedFor: null,
+        linkedinPostId: null,
         createdAt: now(),
       }),
     );

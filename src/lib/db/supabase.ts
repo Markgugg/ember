@@ -119,6 +119,7 @@ const toDraft = (r: any): Draft => ({
   mediaStyle: r.media_style ?? "card",
   editDiff: r.edit_diff,
   plannedFor: r.planned_for ?? null,
+  linkedinPostId: r.linkedin_post_id ?? null,
   createdAt: r.created_at,
 });
 
@@ -405,6 +406,24 @@ export const supabaseRepo: Repo = {
 
     return (data ?? []).map(toDiscourse);
   },
+  async insertDiscourseItem(item) {
+    const { data, error } = await admin()
+      .from("discourse_items")
+      .insert({
+        snapshot_at: item.snapshotAt,
+        title: item.title,
+        summary: item.summary,
+        stance_a: item.stanceA,
+        stance_b: item.stanceB,
+        velocity: item.velocity,
+        sources: item.sources,
+        embedding: JSON.stringify(item.embedding),
+      })
+      .select()
+      .single();
+    throwOn(error, "insertDiscourseItem");
+    return toDiscourse(data);
+  },
 
   async insertBrief(b: NewBrief) {
     const { data, error } = await admin()
@@ -536,6 +555,9 @@ export const supabaseRepo: Repo = {
         ...(patch.rationale !== undefined && { rationale: patch.rationale }),
         ...(patch.plannedFor !== undefined && { planned_for: patch.plannedFor }),
         ...(patch.mediaStyle !== undefined && { media_style: patch.mediaStyle }),
+        ...(patch.linkedinPostId !== undefined && {
+          linkedin_post_id: patch.linkedinPostId,
+        }),
       })
       .eq("id", id)
       .select()

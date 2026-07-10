@@ -22,7 +22,13 @@ export type NewBrief = Omit<Brief, "id" | "createdAt" | "status"> & {
 };
 export type NewDraft = Omit<
   Draft,
-  "id" | "createdAt" | "status" | "editDiff" | "plannedFor" | "mediaStyle"
+  | "id"
+  | "createdAt"
+  | "status"
+  | "editDiff"
+  | "plannedFor"
+  | "mediaStyle"
+  | "linkedinPostId"
 >;
 
 export interface DraftPatch {
@@ -34,6 +40,8 @@ export interface DraftPatch {
   plannedFor?: string | null;
   /** Compact card vs full-width photo — the per-draft switch. */
   mediaStyle?: MediaStyle;
+  /** The URN LinkedIn returned at publish — the link back to the real post. */
+  linkedinPostId?: string | null;
 }
 
 /**
@@ -83,6 +91,11 @@ export interface Repo {
   insertSnapshot(
     items: Omit<DiscourseItem, "id">[],
   ): Promise<DiscourseItem[]>;
+  /**
+   * One story added outside the feed pull — an article the member brought
+   * themselves. No pruning here; it lives or dies with the snapshot rules.
+   */
+  insertDiscourseItem(item: Omit<DiscourseItem, "id">): Promise<DiscourseItem>;
 
   // briefs
   insertBrief(b: NewBrief): Promise<Brief>;

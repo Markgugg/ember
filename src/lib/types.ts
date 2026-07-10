@@ -131,6 +131,12 @@ export interface Draft {
    * on your behalf, so nothing fires at this time.
    */
   plannedFor: string | null;
+  /**
+   * The URN LinkedIn returned when this draft was published through the API.
+   * It's the receipt: the one thing that links a row here to the real post.
+   * Null for drafts posted by hand (copy) or from before Current kept it.
+   */
+  linkedinPostId: string | null;
   createdAt: string;
 }
 

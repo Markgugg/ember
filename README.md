@@ -36,7 +36,7 @@ Same app, same data, same LinkedIn connection.
 
 | Mode | What it does |
 |---|---|
-| **From the news** | Pin a story. Current finds which of your banked claims meets it — or refuses. |
+| **From the news** | Pin a story — from the feed, or paste any article link of your own. Current finds which of your banked claims meets it — or refuses. |
 | **From a transcript** | Bring a conversation. Current finds the claim worth posting, and the live hook for it. |
 | **Blend both** | A story *and* a conversation, pinned together. The intersection, on purpose. |
 

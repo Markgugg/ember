@@ -103,7 +103,12 @@ export async function publishDraft(
 
   try {
     const postId = await postToLinkedIn(profile!, body, link, imageAsset);
-    await repo.updateDraft(draftId, userId, { status: "posted" });
+    await repo.updateDraft(draftId, userId, {
+      status: "posted",
+      // The URN is the receipt — it's how the dashboard links to the live
+      // post. Older LinkedIn responses could omit the header; keep null then.
+      linkedinPostId: postId.startsWith("urn:") ? postId : null,
+    });
     if (bundle?.brief.insightId) {
       await repo.updateInsightStatus(bundle.brief.insightId, userId, "posted");
       await repo.updateBriefStatus(draft.briefId, userId, "consumed");

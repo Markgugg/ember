@@ -31,7 +31,8 @@ export default async function Home() {
     )
     .slice(0, 3);
 
-  const shipped = drafts.filter((d) => d.status === "posted").length;
+  const shippedPosts = drafts.filter((d) => d.status === "posted");
+  const shipped = shippedPosts.length;
   const angles = insights.filter((i) => i.status !== "posted").length;
 
   return (
@@ -200,8 +201,70 @@ export default async function Home() {
           </div>
         </section>
       </div>
+
+      {/* ── shipped: your posts, linked to the real thing ─────────────
+          LinkedIn's API posts for us but won't read engagement back —
+          impressions and reactions sit behind its partner program (verified:
+          403 on both read endpoints). So no invented numbers here: each row
+          links straight to the live post, where the real stats are. */}
+      {shippedPosts.length > 0 && (
+        <section className="glass rounded-[20px] px-[22px] py-[18px]">
+          <div className="mb-2.5 flex items-baseline gap-2">
+            <span className="text-[15px] font-bold">Shipped</span>
+            <span className="text-[11.5px] text-ink-3">
+              {shipped} post{shipped === 1 ? "" : "s"} live · reactions and
+              impressions live on LinkedIn, one click away
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {shippedPosts.slice(0, 4).map((d) => (
+              <div
+                key={d.id}
+                className="glass-inner flex items-center gap-3 rounded-[13px] px-3.5 py-2.5"
+              >
+                <span className="shrink-0 rounded-full bg-[rgb(23_114_69/0.1)] px-2.5 py-[5px] text-[10.5px] font-bold text-positive">
+                  POSTED
+                </span>
+                <Link
+                  href={`/brief/${d.briefId}`}
+                  className="min-w-0 flex-1 truncate text-[12.5px] font-semibold hover:text-accent"
+                >
+                  {draftTitle(d)}
+                </Link>
+                <span className="shrink-0 text-[11px] text-ink-3">
+                  {shortDate(d.createdAt)}
+                </span>
+                {d.linkedinPostId ? (
+                  <a
+                    href={`https://www.linkedin.com/feed/update/${d.linkedinPostId}/`}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="shrink-0 text-[11.5px] font-semibold text-accent hover:underline"
+                  >
+                    View on LinkedIn →
+                  </a>
+                ) : (
+                  <span
+                    className="shrink-0 text-[11px] text-ink-4"
+                    title="Posted by hand (copied out), so LinkedIn never told Current where it lives."
+                  >
+                    posted by hand
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
+}
+
+function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function Stat({ value, label }: { value: number; label: string }) {
