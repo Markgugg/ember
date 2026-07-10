@@ -16,6 +16,8 @@ export interface BriefViewData {
     title: string;
     sources: { url: string; domain: string; ageHours: number; meta?: string }[];
   } | null;
+  /** Whether the source article has an image the photo layout can run. */
+  articleHasImage: boolean;
   drafts: DraftData[];
 }
 
@@ -83,6 +85,7 @@ export function BriefView({ data }: { data: BriefViewData }) {
         author={data.author}
         copySignal={copySignal}
         linkedinConnected={data.linkedinConnected}
+        articleHasImage={data.articleHasImage}
       />
 
       {/* 3 — the recommendation */}
@@ -112,6 +115,7 @@ export function BriefView({ data }: { data: BriefViewData }) {
                   author={data.author}
                   copySignal={0}
                   linkedinConnected={data.linkedinConnected}
+                  articleHasImage={data.articleHasImage}
                 />
               ))}
             </div>

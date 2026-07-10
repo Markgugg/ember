@@ -21,6 +21,22 @@ export type PublishResult =
  * Best effort. A link with no image still posts as a plain card, and a failure
  * here never stops the post going out.
  */
+/** Download the article's image and register it as a LinkedIn asset. */
+async function uploadArticleImage(
+  profile: Profile,
+  imageUrl: string,
+): Promise<string | null> {
+  try {
+    const { fetchImageBytes } = await import("@/lib/preview");
+    const image = await fetchImageBytes(imageUrl);
+    if (!image) return null;
+    const { uploadImage } = await import("@/lib/linkedin");
+    return await uploadImage(profile, image.bytes, image.contentType);
+  } catch {
+    return null;
+  }
+}
+
 async function enrichLink(link: PostLink): Promise<PostLink> {
   try {
     const { fetchArticlePreview } = await import("@/lib/preview");
@@ -75,8 +91,18 @@ export async function publishDraft(
   const bare = sourceLink(bundle?.discourseItem ?? null);
   const link = bare ? await enrichLink(bare) : null;
 
+  // "photo": upload the article's image and run it full-width. The media slot
+  // is then taken, so the link moves into the body. Any failure here quietly
+  // falls back to the card — the switch is a preference, never a blocker.
+  let imageAsset: string | null = null;
+  let body = draft.body;
+  if ((draft.mediaStyle ?? "card") === "photo" && link?.imageUrl) {
+    imageAsset = await uploadArticleImage(profile!, link.imageUrl);
+    if (imageAsset) body = `${draft.body}\n\nvia ${link.url}`;
+  }
+
   try {
-    const postId = await postToLinkedIn(profile!, draft.body, link);
+    const postId = await postToLinkedIn(profile!, body, link, imageAsset);
     await repo.updateDraft(draftId, userId, { status: "posted" });
     if (bundle?.brief.insightId) {
       await repo.updateInsightStatus(bundle.brief.insightId, userId, "posted");

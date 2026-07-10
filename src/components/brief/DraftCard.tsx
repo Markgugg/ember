@@ -10,6 +10,7 @@ import {
   planDraft,
   postDraftNow,
   saveDraftEdit,
+  setDraftMediaStyle,
 } from "@/app/actions";
 
 export interface DraftData {
@@ -19,6 +20,8 @@ export interface DraftData {
   body: string;
   isPrimary: boolean;
   status: string;
+  /** Card vs full-width photo — persisted, honoured by scheduled posts. */
+  mediaStyle: "card" | "photo";
 }
 
 export interface PostAuthor {
@@ -36,11 +39,14 @@ export function DraftCard({
   author,
   copySignal,
   linkedinConnected = false,
+  articleHasImage = false,
 }: {
   draft: DraftData;
   author: PostAuthor;
   copySignal: number;
   linkedinConnected?: boolean;
+  /** Enables the Card/Photo switch — a photo layout needs an image to run. */
+  articleHasImage?: boolean;
 }) {
   const [body, setBody] = useState(draft.body);
   const [copied, setCopied] = useState(false);
@@ -108,8 +114,18 @@ export function DraftCard({
     }
   };
 
-  const [slot, setSlot] = useState(defaultSlot());
+  const [slot, setSlot] = useState<string>(defaultSlot);
   const [scheduling, setScheduling] = useState(false);
+
+  const [mediaStyle, setMediaStyle] = useState(draft.mediaStyle);
+  const switchStyle = (style: "card" | "photo") => {
+    if (style === mediaStyle) return;
+    setMediaStyle(style);
+    void setDraftMediaStyle(draft.id, style).catch(() => {
+      setMediaStyle(mediaStyle);
+      toast({ message: "Couldn't save that choice.", tone: "danger" });
+    });
+  };
   const schedule = async () => {
     setScheduling(true);
     try {
@@ -127,15 +143,6 @@ export function DraftCard({
   };
 
   const initial = (author.name || "Y")[0].toUpperCase();
-
-  function defaultSlot(): string {
-    // tomorrow 09:00 local, formatted for <input type="datetime-local">
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    d.setHours(9, 0, 0, 0);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
 
   return (
     <div>
@@ -188,6 +195,7 @@ export function DraftCard({
             id={`slot-${draft.id}`}
             type="datetime-local"
             value={slot}
+            suppressHydrationWarning
             onChange={(e) => setSlot(e.target.value)}
             className="rounded-full border border-[rgb(27_36_48/0.1)] bg-white px-3 py-1.5 text-[11.5px] outline-none focus:border-accent"
           />
@@ -204,6 +212,37 @@ export function DraftCard({
               ? "posts itself at that time"
               : "reminder only until LinkedIn is connected"}
           </span>
+
+          {articleHasImage && (
+            <div className="ml-auto flex items-center gap-1.5">
+              <span className="text-[10.5px] text-ink-3">
+                {mediaStyle === "photo"
+                  ? "big picture, link in the text"
+                  : "compact card with the link"}
+              </span>
+              <div
+                role="group"
+                aria-label="Post layout"
+                className="flex rounded-full bg-[rgb(27_36_48/0.06)] p-0.5"
+              >
+                {(["card", "photo"] as const).map((style) => (
+                  <button
+                    key={style}
+                    type="button"
+                    aria-pressed={mediaStyle === style}
+                    onClick={() => switchStyle(style)}
+                    className={`rounded-full px-2.5 py-[3px] text-[10.5px] font-semibold transition-colors ${
+                      mediaStyle === style
+                        ? "bg-accent text-white"
+                        : "text-ink-2 hover:text-ink"
+                    }`}
+                  >
+                    {style === "card" ? "Card" : "Photo"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between border-t border-[rgb(27_36_48/0.07)] bg-[rgb(255_255_255/0.4)] px-4 py-3">
@@ -257,4 +296,18 @@ export function DraftCard({
       </div>
     </div>
   );
+}
+
+/**
+ * Tomorrow 09:00 local, for <input type="datetime-local">. Rendered with
+ * suppressHydrationWarning: across a minute boundary the server render and
+ * client hydration compute different strings, and the client's is the one
+ * that matters.
+ */
+function defaultSlot(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(9, 0, 0, 0);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

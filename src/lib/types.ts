@@ -108,6 +108,13 @@ export interface Brief {
   createdAt: string;
 }
 
+/**
+ * How the source article rides on the published post.
+ *  "card"  — ARTICLE share: image, headline and link in one compact card
+ *  "photo" — IMAGE share: the article's image full-width, link in the text
+ */
+export type MediaStyle = "card" | "photo";
+
 export interface Draft {
   id: string;
   briefId: string;
@@ -116,6 +123,8 @@ export interface Draft {
   body: string;
   isPrimary: boolean;
   status: DraftStatus;
+  /** Chosen per draft; scheduled posts honour it when they fire. */
+  mediaStyle: MediaStyle;
   editDiff: { before: string; after: string } | null;
   /**
    * A slot you planned for this post. A reminder only — Current never posts

@@ -115,6 +115,8 @@ const toDraft = (r: any): Draft => ({
   body: r.body,
   isPrimary: r.is_primary,
   status: r.status,
+  // Rows predating the column post as the compact card, the old behaviour.
+  mediaStyle: r.media_style ?? "card",
   editDiff: r.edit_diff,
   plannedFor: r.planned_for ?? null,
   createdAt: r.created_at,
@@ -533,6 +535,7 @@ export const supabaseRepo: Repo = {
         ...(patch.editDiff !== undefined && { edit_diff: patch.editDiff }),
         ...(patch.rationale !== undefined && { rationale: patch.rationale }),
         ...(patch.plannedFor !== undefined && { planned_for: patch.plannedFor }),
+        ...(patch.mediaStyle !== undefined && { media_style: patch.mediaStyle }),
       })
       .eq("id", id)
       .select()

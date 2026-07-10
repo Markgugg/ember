@@ -241,6 +241,7 @@ const rawMemoryRepo: Repo = {
         ...d,
         id: randomUUID(),
         status: "suggested",
+        mediaStyle: "card",
         editDiff: null,
         plannedFor: null,
         createdAt: now(),

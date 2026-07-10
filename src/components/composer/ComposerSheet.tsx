@@ -15,6 +15,7 @@ import {
   planDraft,
   postDraftNow,
   saveDraftEdit,
+  setDraftMediaStyle,
   type ComposerSources,
 } from "@/app/actions";
 import { SAMPLE_TRANSCRIPT } from "@/lib/sample";
@@ -60,6 +61,7 @@ export function ComposerSheet() {
     angle: string;
     rationale: string;
     sourceNote: string;
+    mediaStyle: "card" | "photo";
     link: { url: string; domain: string; shape: "card" | "plain" } | null;
   } | null>(null);
   const [refusedBriefId, setRefusedBriefId] = useState<string | null>(null);
@@ -509,15 +511,33 @@ export function ComposerSheet() {
             {draft && (
               <>
                 {draft.link && (
-                  <a
-                    href={draft.link.url}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="flex shrink-0 items-center gap-2 rounded-[12px] border border-[rgb(27_36_48/0.1)] bg-[rgb(255_255_255/0.7)] px-3 py-2 transition-colors hover:border-accent"
-                  >
-                    <LinkIcon size={13} className="shrink-0 text-accent" aria-hidden />
+                  <div className="flex shrink-0 items-center gap-2 rounded-[12px] border border-[rgb(27_36_48/0.1)] bg-[rgb(255_255_255/0.7)] px-3 py-2">
+                    <a
+                      href={draft.link.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      aria-label={`Open ${draft.link.domain}`}
+                      className="shrink-0 text-accent transition-transform hover:scale-110"
+                    >
+                      <LinkIcon size={13} aria-hidden />
+                    </a>
                     <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-2">
-                      {draft.link.shape === "card" ? (
+                      {draft.link.shape !== "card" ? (
+                        <>
+                          <span className="font-semibold text-ink">
+                            {draft.link.domain}
+                          </span>{" "}
+                          has no image, so the card carries no picture.
+                        </>
+                      ) : draft.mediaStyle === "photo" ? (
+                        <>
+                          Full-width photo,{" "}
+                          <span className="font-semibold text-ink">
+                            via {draft.link.domain}
+                          </span>{" "}
+                          link in the text.
+                        </>
+                      ) : (
                         <>
                           Card:{" "}
                           <span className="font-semibold text-ink">
@@ -525,16 +545,42 @@ export function ComposerSheet() {
                           </span>
                           &apos;s image, headline and link, together.
                         </>
-                      ) : (
-                        <>
-                          <span className="font-semibold text-ink">
-                            {draft.link.domain}
-                          </span>{" "}
-                          has no image, so the card carries no picture.
-                        </>
                       )}
                     </span>
-                  </a>
+                    {draft.link.shape === "card" && (
+                      <div
+                        role="group"
+                        aria-label="Post layout"
+                        className="flex shrink-0 rounded-full bg-[rgb(27_36_48/0.06)] p-0.5"
+                      >
+                        {(["card", "photo"] as const).map((style) => (
+                          <button
+                            key={style}
+                            type="button"
+                            aria-pressed={draft.mediaStyle === style}
+                            onClick={() => {
+                              if (draft.mediaStyle === style) return;
+                              setDraft({ ...draft, mediaStyle: style });
+                              void setDraftMediaStyle(draft.draftId, style).catch(
+                                () =>
+                                  toast({
+                                    message: "Couldn't save that choice.",
+                                    tone: "danger",
+                                  }),
+                              );
+                            }}
+                            className={`rounded-full px-2.5 py-[3px] text-[10.5px] font-semibold transition-colors ${
+                              draft.mediaStyle === style
+                                ? "bg-accent text-white"
+                                : "text-ink-2 hover:text-ink"
+                            }`}
+                          >
+                            {style === "card" ? "Card" : "Photo"}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
                 <p className="break-words text-[10.5px] leading-relaxed text-ink-3">
                   Sources: {draft.sourceNote}

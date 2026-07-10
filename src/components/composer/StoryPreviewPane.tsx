@@ -27,9 +27,19 @@ export function StoryPreviewPane({ storyId }: { storyId: string }) {
   // the server would mean fetching every image just to look at its header.
   const [ratio, setRatio] = useState<number | null>(null);
 
+  // Reset during render when the story changes — the React-sanctioned way to
+  // derive state from a prop. Without it the previous story's preview (and
+  // its image ratio) kept judging the next one until the new load landed.
+  const [shownStory, setShownStory] = useState(storyId);
+  if (shownStory !== storyId) {
+    setShownStory(storyId);
+    setPreview(null);
+    setLoading(true);
+    setRatio(null);
+  }
+
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     void loadStoryPreview(storyId)
       .then((p) => {
         if (!cancelled) setPreview(p);

@@ -24,6 +24,16 @@ export default async function BriefPage({
   const profile = await repo.getProfile(userId);
   const { linkedinReady } = await import("@/lib/linkedin");
 
+  // The photo layout only exists when the article has an image to run
+  // full-width. Cached by the preview layer, so this is usually free.
+  let articleHasImage = false;
+  const articleUrl = bundle.discourseItem?.sources?.[0]?.articleUrl;
+  if (articleUrl) {
+    const { fetchArticlePreview } = await import("@/lib/preview");
+    const preview = await fetchArticlePreview(articleUrl);
+    articleHasImage = Boolean(preview.fetched && preview.image);
+  }
+
   // Strip embeddings before crossing to the client — 1536 floats of dead weight.
   const data: BriefViewData = {
     briefId: bundle.brief.id,
@@ -41,6 +51,7 @@ export default async function BriefPage({
           sources: bundle.discourseItem.sources,
         }
       : null,
+    articleHasImage,
     drafts: bundle.drafts.map((d) => ({
       id: d.id,
       angle: d.angle,
@@ -48,6 +59,7 @@ export default async function BriefPage({
       body: d.body,
       isPrimary: d.isPrimary,
       status: d.status,
+      mediaStyle: d.mediaStyle ?? "card",
     })),
   };
 

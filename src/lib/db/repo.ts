@@ -7,6 +7,7 @@ import type {
   DraftStatus,
   Insight,
   InsightStatus,
+  MediaStyle,
   Profile,
   Transcript,
 } from "@/lib/types";
@@ -21,7 +22,7 @@ export type NewBrief = Omit<Brief, "id" | "createdAt" | "status"> & {
 };
 export type NewDraft = Omit<
   Draft,
-  "id" | "createdAt" | "status" | "editDiff" | "plannedFor"
+  "id" | "createdAt" | "status" | "editDiff" | "plannedFor" | "mediaStyle"
 >;
 
 export interface DraftPatch {
@@ -31,6 +32,8 @@ export interface DraftPatch {
   rationale?: string;
   /** Reminder slot only — Current never auto-posts. */
   plannedFor?: string | null;
+  /** Compact card vs full-width photo — the per-draft switch. */
+  mediaStyle?: MediaStyle;
 }
 
 /**

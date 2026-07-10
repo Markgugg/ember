@@ -315,6 +315,8 @@ export async function loadBriefDraft(briefId: string): Promise<{
   angle: string;
   rationale: string;
   sourceNote: string;
+  /** Card vs full-width photo — the member's per-draft choice. */
+  mediaStyle: "card" | "photo";
   /**
    * The article the post cites, and the card it will carry.
    *  "card"  — image, headline, domain and link in one clickable unit
@@ -353,10 +355,21 @@ export async function loadBriefDraft(briefId: string): Promise<{
     angle: primary.angle,
     rationale: primary.rationale,
     sourceNote: parts.join(" + "),
+    mediaStyle: primary.mediaStyle ?? "card",
     link: attached
       ? { url: attached.url, domain: source?.domain ?? "link", shape }
       : null,
   };
+}
+
+/** The card/photo switch. Persisted on the draft so scheduled posts honour it. */
+export async function setDraftMediaStyle(
+  draftId: string,
+  style: "card" | "photo",
+): Promise<void> {
+  const repo = await getRepo();
+  const userId = await getUserId();
+  await repo.updateDraft(draftId, userId, { mediaStyle: style });
 }
 
 function truncate(s: string, n: number): string {

@@ -217,6 +217,12 @@ export async function postToLinkedIn(
   profile: Profile,
   text: string,
   link?: PostLink | null,
+  /**
+   * A pre-uploaded asset URN switches the share to a full-width IMAGE post —
+   * the "photo" style. LinkedIn rejects an asset combined with originalUrl
+   * (400), so in this mode the caller puts the link in the body instead.
+   */
+  imageAsset?: string | null,
 ): Promise<string> {
   if (!linkedinReady(profile)) {
     throw new Error("linkedin not connected or token expired");
@@ -224,10 +230,18 @@ export async function postToLinkedIn(
 
   const shareContent: Record<string, unknown> = {
     shareCommentary: { text },
-    shareMediaCategory: link ? "ARTICLE" : "NONE",
+    shareMediaCategory: imageAsset ? "IMAGE" : link ? "ARTICLE" : "NONE",
   };
 
-  if (link) {
+  if (imageAsset) {
+    shareContent.media = [
+      {
+        status: "READY",
+        media: imageAsset,
+        ...(link?.title ? { title: { text: link.title.slice(0, 180) } } : {}),
+      },
+    ];
+  } else if (link) {
     shareContent.media = [
       {
         status: "READY",
