@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { AiLine } from "@/components/ui/AiVoice";
@@ -20,6 +21,8 @@ export function SettingsModal() {
   const [displayName, setDisplayName] = useState("");
   const [headline, setHeadline] = useState("");
   const [audience, setAudience] = useState("");
+  const [beats, setBeats] = useState<string[]>([]);
+  const [newBeat, setNewBeat] = useState("");
   const [samples, setSamples] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -31,11 +34,19 @@ export function SettingsModal() {
         setDisplayName(p.displayName ?? "");
         setHeadline(p.headline ?? "");
         setAudience(p.audience ?? "");
+        setBeats(p.beats);
         setSamples(p.voiceSamples.join("\n\n---\n\n"));
       }
       setLoaded(true);
     });
   }, [open, loaded]);
+
+  const addBeat = () => {
+    const beat = newBeat.trim();
+    if (!beat || beats.length >= 8 || beats.includes(beat)) return;
+    setBeats([...beats, beat]);
+    setNewBeat("");
+  };
 
   const save = async () => {
     setSaving(true);
@@ -44,6 +55,7 @@ export function SettingsModal() {
         displayName,
         headline,
         audience,
+        beats,
         voiceSamples: samples
           .split(/\n\s*---\s*\n/)
           .map((s) => s.trim())
@@ -94,6 +106,42 @@ export function SettingsModal() {
         placeholder="CS student & co-founder — full-stack products"
         className={`${field} mb-3`}
       />
+
+      <Label>The topics you&apos;d post about</Label>
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        {beats.map((beat) => (
+          <span
+            key={beat}
+            className="inline-flex items-center gap-1 rounded-full bg-[rgb(10_102_194/0.08)] py-1 pl-2.5 pr-1.5 text-[12px] text-accent"
+          >
+            {beat}
+            <button
+              type="button"
+              onClick={() => setBeats(beats.filter((b) => b !== beat))}
+              aria-label={`Remove ${beat}`}
+              className="rounded-full p-0.5 hover:bg-[rgb(10_102_194/0.14)]"
+            >
+              <X size={11} />
+            </button>
+          </span>
+        ))}
+        {beats.length < 8 && (
+          <input
+            value={newBeat}
+            onChange={(e) => setNewBeat(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addBeat();
+              }
+            }}
+            onBlur={addBeat}
+            placeholder="Add a topic…"
+            aria-label="Add a topic"
+            className="min-w-[110px] flex-1 rounded-full border border-dashed border-[rgb(27_36_48/0.16)] bg-transparent px-2.5 py-1 text-[12px] outline-none placeholder:text-ink-3 focus:border-accent"
+          />
+        )}
+      </div>
 
       <Label>
         Posts that sound like you — separate with{" "}

@@ -21,6 +21,7 @@ export interface ProfileView {
   headline: string | null;
   audience: string | null;
   linkedinUrl: string | null;
+  beats: string[];
   voiceSamples: string[];
   linkedinConnected: boolean;
 }
@@ -35,6 +36,7 @@ export async function loadProfile(): Promise<ProfileView | null> {
     headline: p.headline,
     audience: p.audience,
     linkedinUrl: p.linkedinUrl,
+    beats: p.beats,
     voiceSamples: p.voiceSamples,
     linkedinConnected: linkedinReady(p),
   };
@@ -111,17 +113,24 @@ export async function loadComposerSources(): Promise<ComposerSources> {
  * Onboarding: scan the LinkedIn URL into an editable profile draft.
  * `pastedProfileText` (your own About/headline text) is the honest way past
  * LinkedIn's authwall — it beats any scrape because it's authoritative.
+ *
+ * The URL may be empty when OAuth already verified the member: `openid
+ * profile` gives us a name but no vanity URL, and a name is enough to draft.
  */
 export async function scanLinkedinProfile(
   url: string,
   pastedProfileText?: string,
+  verifiedName?: string,
 ) {
   const trimmed = url.trim();
-  if (!/linkedin\.com\/in\/[^/?#]+/i.test(trimmed)) {
+  if (trimmed && !/linkedin\.com\/in\/[^/?#]+/i.test(trimmed)) {
     throw new Error("That doesn't look like a linkedin.com/in/… profile URL.");
   }
+  if (!trimmed && !verifiedName?.trim()) {
+    throw new Error("Paste your linkedin.com/in/… profile URL to continue.");
+  }
   const { scanLinkedin } = await import("@/lib/scan");
-  return scanLinkedin(trimmed, pastedProfileText);
+  return scanLinkedin(trimmed, pastedProfileText, verifiedName?.trim());
 }
 
 /** Is the LinkedIn OAuth app configured? Drives the onboarding connect button. */

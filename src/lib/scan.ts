@@ -41,15 +41,18 @@ export async function scanLinkedin(
   url: string,
   /** Text the member pasted from their own profile — the authwall's only honest bypass. */
   pastedProfileText?: string,
+  /** Name confirmed by OAuth. Outranks the slug guess and the page title. */
+  verifiedName?: string,
 ): Promise<ScanResult> {
   const slug = extractSlug(url);
-  const nameGuess = slug ? nameFromSlug(slug) : "";
+  const nameGuess = verifiedName || (slug ? nameFromSlug(slug) : "");
   const pasted = pastedProfileText?.trim().slice(0, 4000) ?? "";
 
   // Best-effort public read — usually authwalled, occasionally generous.
   let pageTitle = "";
   let pageDescription = "";
   try {
+    if (!url) throw new Error("no url");
     const res = await fetch(url, {
       headers: {
         "User-Agent":
@@ -83,7 +86,7 @@ export async function scanLinkedin(
   const titleHeadline = pageTitle.includes(" - ")
     ? pageTitle.split(/\s+-\s+/).slice(1).join(" - ").replace(/\|\s*LinkedIn.*$/i, "").trim()
     : "";
-  const name = (profileFetched && titleName) || nameGuess;
+  const name = verifiedName || (profileFetched && titleName) || nameGuess;
 
   if (FIXTURE_MODE) {
     return {

@@ -82,9 +82,13 @@ function WelcomeFlow() {
   const [voiceSample, setVoiceSample] = useState("");
   const [finishing, setFinishing] = useState(false);
 
+  // OAuth already told us who you are, so the URL becomes optional — it only
+  // ever fed a name guess, and a verified name beats a guess.
+  const canProceed = urlValid || Boolean(verifiedName);
+
   const startedScan = useRef(false);
   const startScan = () => {
-    if (!urlValid) {
+    if (!canProceed) {
       setUrlError("Paste your linkedin.com/in/… profile URL to continue.");
       return;
     }
@@ -93,7 +97,11 @@ function WelcomeFlow() {
     if (startedScan.current) return;
     startedScan.current = true;
 
-    void scanLinkedinProfile(linkedinUrl)
+    void scanLinkedinProfile(
+      urlValid ? linkedinUrl : "",
+      undefined,
+      verifiedName ?? undefined,
+    )
       .then((scan) => {
         // A name verified through OAuth outranks one guessed from the URL.
         setDisplayName(verifiedName ?? scan.name);
@@ -206,8 +214,9 @@ function WelcomeFlow() {
                 </p>
               )}
               <p className="mb-5 text-[11.5px] leading-relaxed text-ink-3">
-                Required — everything Current writes is anchored to a real
-                person.
+                {verifiedName
+                  ? "Optional now that LinkedIn verified you — add it if you want it on your profile."
+                  : "Required — everything Current writes is anchored to a real person."}
               </p>
 
               {verifiedName ? (
@@ -232,8 +241,8 @@ function WelcomeFlow() {
               ) : null}
 
               <div className="flex justify-end">
-                <Button onClick={startScan} disabled={!urlValid}>
-                  Link my profile
+                <Button onClick={startScan} disabled={!canProceed}>
+                  {verifiedName && !urlValid ? "Continue" : "Link my profile"}
                 </Button>
               </div>
             </div>
