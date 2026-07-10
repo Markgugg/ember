@@ -11,6 +11,7 @@ export interface BriefViewData {
   recommendation: string | null;
   insightQuote: string | null;
   author: PostAuthor;
+  linkedinConnected: boolean;
   discourse: {
     title: string;
     sources: { url: string; domain: string; ageHours: number; meta?: string }[];
@@ -77,7 +78,12 @@ export function BriefView({ data }: { data: BriefViewData }) {
       )}
 
       {/* 2 — the post */}
-      <DraftCard draft={primary} author={data.author} copySignal={copySignal} />
+      <DraftCard
+        draft={primary}
+        author={data.author}
+        copySignal={copySignal}
+        linkedinConnected={data.linkedinConnected}
+      />
 
       {/* 3 — the recommendation */}
       {data.recommendation && (
@@ -105,6 +111,7 @@ export function BriefView({ data }: { data: BriefViewData }) {
                   draft={d}
                   author={data.author}
                   copySignal={0}
+                  linkedinConnected={data.linkedinConnected}
                 />
               ))}
             </div>

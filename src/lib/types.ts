@@ -23,6 +23,11 @@ export interface Profile {
   linkedinUrl: string | null;
   voiceSamples: string[];
   onboardedAt: string | null;
+  /* LinkedIn publishing (official "Share on LinkedIn" API, w_member_social).
+     Server-only — never ship these to the client. */
+  linkedinUrn: string | null;
+  linkedinAccessToken: string | null;
+  linkedinTokenExpiresAt: string | null;
 }
 
 export interface Transcript {

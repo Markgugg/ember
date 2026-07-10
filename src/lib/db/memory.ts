@@ -239,6 +239,16 @@ export const memoryRepo: Repo = {
       .filter((d) => s.briefs.get(d.briefId)?.userId === userId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },
+  async listDueDrafts(nowIso) {
+    const s = state();
+    const out: { draft: Draft; userId: string }[] = [];
+    for (const d of s.drafts.values()) {
+      if (d.status === "posted" || !d.plannedFor || d.plannedFor > nowIso) continue;
+      const brief = s.briefs.get(d.briefId);
+      if (brief) out.push({ draft: d, userId: brief.userId });
+    }
+    return out;
+  },
   async getDraft(id, userId) {
     const s = state();
     const d = s.drafts.get(id);

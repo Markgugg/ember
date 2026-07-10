@@ -50,6 +50,9 @@ const toProfile = (r: any): Profile => ({
   linkedinUrl: r.linkedin_url,
   voiceSamples: r.voice_samples ?? [],
   onboardedAt: r.onboarded_at,
+  linkedinUrn: r.linkedin_urn ?? null,
+  linkedinAccessToken: r.linkedin_access_token ?? null,
+  linkedinTokenExpiresAt: r.linkedin_token_expires_at ?? null,
 });
 
 const toTranscript = (r: any): Transcript => ({
@@ -172,6 +175,9 @@ export const supabaseRepo: Repo = {
         linkedin_url: p.linkedinUrl,
         voice_samples: p.voiceSamples,
         onboarded_at: p.onboardedAt,
+        linkedin_urn: p.linkedinUrn,
+        linkedin_access_token: p.linkedinAccessToken,
+        linkedin_token_expires_at: p.linkedinTokenExpiresAt,
       })
       .select()
       .single();
@@ -459,6 +465,20 @@ export const supabaseRepo: Repo = {
       .order("created_at", { ascending: false });
     throwOn(error, "listDrafts");
     return (data ?? []).map(toDraft);
+  },
+  async listDueDrafts(nowIso) {
+    const { data, error } = await admin()
+      .from("drafts")
+      .select("*, briefs!inner(user_id)")
+      .neq("status", "posted")
+      .not("planned_for", "is", null)
+      .lte("planned_for", nowIso);
+    throwOn(error, "listDueDrafts");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data ?? []).map((r: any) => ({
+      draft: toDraft(r),
+      userId: r.briefs.user_id as string,
+    }));
   },
   async getDraft(id, userId) {
     const { data, error } = await admin()

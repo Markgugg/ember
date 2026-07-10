@@ -97,6 +97,8 @@ export interface Repo {
   // drafts
   insertDrafts(drafts: NewDraft[]): Promise<Draft[]>;
   listDrafts(userId: string): Promise<Draft[]>;
+  /** Across ALL users: unposted drafts whose planned slot has come due. */
+  listDueDrafts(nowIso: string): Promise<{ draft: Draft; userId: string }[]>;
   getDraft(id: string, userId: string): Promise<Draft | null>;
   updateDraft(
     id: string,

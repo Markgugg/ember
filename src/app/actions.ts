@@ -12,13 +12,32 @@ import {
   type ConversationView,
   type StoryView,
 } from "@/lib/view";
-import type { Profile } from "@/lib/types";
 
 /* ── profile ──────────────────────────────────────────────────────── */
 
-export async function loadProfile(): Promise<Profile | null> {
+/** Client-safe profile view — the LinkedIn token NEVER crosses to the browser. */
+export interface ProfileView {
+  displayName: string | null;
+  headline: string | null;
+  audience: string | null;
+  linkedinUrl: string | null;
+  voiceSamples: string[];
+  linkedinConnected: boolean;
+}
+
+export async function loadProfile(): Promise<ProfileView | null> {
   const repo = await getRepo();
-  return repo.getProfile(await getUserId());
+  const p = await repo.getProfile(await getUserId());
+  if (!p) return null;
+  const { linkedinReady } = await import("@/lib/linkedin");
+  return {
+    displayName: p.displayName,
+    headline: p.headline,
+    audience: p.audience,
+    linkedinUrl: p.linkedinUrl,
+    voiceSamples: p.voiceSamples,
+    linkedinConnected: linkedinReady(p),
+  };
 }
 
 const profileSchema = z.object({
@@ -31,14 +50,14 @@ const profileSchema = z.object({
 
 export async function saveProfile(
   input: z.infer<typeof profileSchema>,
-): Promise<Profile> {
+): Promise<void> {
   const parsed = profileSchema.parse(input);
   const repo = await getRepo();
   const userId = await getUserId();
   const existing = await repo.getProfile(userId);
   const or = <T,>(next: T | undefined, prev: T | null): T | null =>
     next === undefined ? prev : next || null;
-  const profile = await repo.upsertProfile({
+  await repo.upsertProfile({
     id: userId,
     displayName: or(parsed.displayName?.trim(), existing?.displayName ?? null),
     headline: or(parsed.headline?.trim(), existing?.headline ?? null),
@@ -49,9 +68,11 @@ export async function saveProfile(
       existing?.voiceSamples ??
       [],
     onboardedAt: existing?.onboardedAt ?? new Date().toISOString(),
+    linkedinUrn: existing?.linkedinUrn ?? null,
+    linkedinAccessToken: existing?.linkedinAccessToken ?? null,
+    linkedinTokenExpiresAt: existing?.linkedinTokenExpiresAt ?? null,
   });
   revalidatePath("/", "layout");
-  return profile;
 }
 
 /* ── composer sources ─────────────────────────────────────────────── */
@@ -60,16 +81,25 @@ export interface ComposerSources {
   stories: StoryView[];
   conversations: ConversationView[];
   live: boolean;
+  linkedinConnected: boolean;
 }
 
 /** Everything the composer sheet needs to let you pick a story and a conversation. */
 export async function loadComposerSources(): Promise<ComposerSources> {
   const userId = await getUserId();
-  const [{ stories, live }, conversations] = await Promise.all([
+  const repo = await getRepo();
+  const { linkedinReady } = await import("@/lib/linkedin");
+  const [{ stories, live }, conversations, profile] = await Promise.all([
     getStories(),
     getConversations(userId),
+    repo.getProfile(userId),
   ]);
-  return { stories, conversations, live };
+  return {
+    stories,
+    conversations,
+    live,
+    linkedinConnected: linkedinReady(profile),
+  };
 }
 
 /** Onboarding's live scan step. */
@@ -150,6 +180,21 @@ export async function planDraft(
   await repo.updateDraft(draftId, userId, { plannedFor: isoTime });
   revalidatePath("/queue");
   revalidatePath("/");
+}
+
+/** Post one draft to the connected LinkedIn account, right now. */
+export async function postDraftNow(
+  draftId: string,
+): Promise<{ ok: boolean; message: string }> {
+  const { publishDraft } = await import("@/lib/publish");
+  const repo = await getRepo();
+  const userId = await getUserId();
+  const result = await publishDraft(repo, userId, draftId);
+  revalidatePath("/queue");
+  revalidatePath("/");
+  return result.ok
+    ? { ok: true, message: "Posted to LinkedIn." }
+    : { ok: false, message: result.error };
 }
 
 export async function notMyVoice(draftId: string): Promise<string> {

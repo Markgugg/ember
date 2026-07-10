@@ -12,6 +12,7 @@ import {
   loadComposerSources,
   markDraftCopied,
   planDraft,
+  postDraftNow,
   saveDraftEdit,
   type ComposerSources,
 } from "@/app/actions";
@@ -139,14 +140,15 @@ export function ComposerSheet() {
   const canGenerate = useMemo(() => {
     if (streaming) return false;
     if (seg === "news") return Boolean(storyId);
-    if (seg === "transcript")
-      return Boolean(conversationId) || pasted.trim().split(/\s+/).length > 20;
-    return Boolean(storyId) && (Boolean(conversationId) || pasted.trim().length > 40);
+    // transcript & blend: a conversation is required; in blend the story is
+    // optional — with none picked, Current auto-picks today's best match.
+    return Boolean(conversationId) || pasted.trim().split(/\s+/).length > 20;
   }, [seg, storyId, conversationId, pasted, streaming]);
 
   const generate = () => {
     setDraft(null);
     setRefusedBriefId(null);
+    setPosted(false);
     const usePaste = pasted.trim().length > 40 && !conversationId;
     void run({
       discourseItemId: seg === "transcript" ? undefined : (storyId ?? undefined),
@@ -174,6 +176,24 @@ export function ComposerSheet() {
     setTimeout(() => setCopied(false), 2400);
   };
 
+  const [posting, setPosting] = useState(false);
+  const [posted, setPosted] = useState(false);
+  const postNow = async () => {
+    if (!draft) return;
+    setPosting(true);
+    try {
+      const result = await postDraftNow(draft.draftId);
+      if (result.ok) {
+        setPosted(true);
+        toast({ message: "Posted to LinkedIn." });
+      } else {
+        toast({ message: result.message, tone: "danger" });
+      }
+    } finally {
+      setPosting(false);
+    }
+  };
+
   if (!open) return null;
 
   const btnLabel = streaming
@@ -195,7 +215,7 @@ export function ComposerSheet() {
         role="dialog"
         aria-modal="true"
         aria-label="New post"
-        className="glass flex h-[620px] w-full max-w-[960px] animate-spring-in flex-col overflow-hidden rounded-[26px]"
+        className="glass flex h-[min(680px,92vh)] w-full max-w-[960px] animate-spring-in flex-col overflow-hidden rounded-[26px]"
         style={{
           background: "rgb(255 255 255 / 0.78)",
           backdropFilter: "blur(44px) saturate(1.8)",
@@ -243,7 +263,7 @@ export function ComposerSheet() {
                   Story + conversation
                 </SectionLabel>
                 <p className="truncate text-[12px] font-semibold">
-                  {story?.title ?? "— pick a story below"}
+                  {story?.title ?? "auto-pick from today's feed"}
                 </p>
                 <p className="my-1 text-center text-[11px] font-bold text-ink-4">
                   +
@@ -260,22 +280,30 @@ export function ComposerSheet() {
             {(seg === "news" || seg === "both") && (
               <>
                 <SectionLabel>
-                  {seg === "both" ? "Story" : "Pick a story"}
+                  {seg === "both" ? "Story — optional" : "Pick a story"}
                 </SectionLabel>
                 {sources === null ? (
                   <SkeletonRows />
                 ) : sources.stories.length === 0 ? (
                   <EmptyNote>No live stories right now. Try again shortly.</EmptyNote>
                 ) : (
-                  sources.stories.slice(0, 6).map((s) => (
-                    <PickRow
-                      key={s.id}
-                      title={s.title}
-                      meta={`${s.domain}${s.buzz ? ` · ${s.buzz}` : ""}`}
-                      selected={storyId === s.id}
-                      onClick={() => setStoryId(storyId === s.id ? null : s.id)}
-                    />
-                  ))
+                  <div
+                    className={`flex flex-col gap-2.5 ${
+                      seg === "both"
+                        ? "max-h-[190px] shrink-0 overflow-y-auto pr-1"
+                        : ""
+                    }`}
+                  >
+                    {sources.stories.slice(0, seg === "both" ? 8 : 6).map((s) => (
+                      <PickRow
+                        key={s.id}
+                        title={s.title}
+                        meta={`${s.domain}${s.buzz ? ` · ${s.buzz}` : ""}`}
+                        selected={storyId === s.id}
+                        onClick={() => setStoryId(storyId === s.id ? null : s.id)}
+                      />
+                    ))}
+                  </div>
                 )}
               </>
             )}
@@ -308,10 +336,10 @@ export function ComposerSheet() {
                           onChange={(e) => setPasted(e.target.value)}
                           placeholder={
                             sources.conversations.length === 0
-                              ? "Paste a meeting, podcast, or voice memo…"
-                              : "…or paste a new one"
+                              ? "Paste a meeting, podcast, or voice memo — or just ramble…"
+                              : "…or paste / ramble a new one"
                           }
-                          className="h-[92px] resize-none rounded-[14px] border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.65)] p-3.5 text-[12.5px] outline-none placeholder:text-ink-3 focus:border-accent"
+                          className="min-h-[96px] shrink-0 resize-none rounded-[14px] border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.65)] p-3.5 text-[12.5px] outline-none placeholder:text-ink-3 focus:border-accent"
                         />
                         <div className="flex items-center gap-2">
                           <Recorder
@@ -358,10 +386,10 @@ export function ComposerSheet() {
             )}
 
             {seg === "both" && (
-              <p className="mt-1 text-[10.5px] leading-relaxed text-ink-3">
-                Blend pins the story and the conversation together. If nothing
-                you said meets that story, Current says so instead of inventing
-                an opinion for you.
+              <p className="mt-1 shrink-0 text-[10.5px] leading-relaxed text-ink-3">
+                {storyId
+                  ? "Blend pins the story and the conversation together. If nothing you said meets that story, Current says so instead of inventing an opinion for you."
+                  : "No story picked — Current will auto-pick today's best match for what you said."}
               </p>
             )}
 
@@ -457,10 +485,24 @@ export function ComposerSheet() {
                   <button
                     type="button"
                     onClick={() => void copy()}
-                    className="rounded-full bg-ink px-[22px] py-[9px] text-[12.5px] font-semibold text-white transition-transform hover:scale-[1.03]"
+                    className={`rounded-full px-[22px] py-[9px] text-[12.5px] font-semibold transition-transform hover:scale-[1.03] ${
+                      sources?.linkedinConnected
+                        ? "bg-[rgb(27_36_48/0.06)] text-ink hover:bg-[rgb(27_36_48/0.12)]"
+                        : "bg-ink text-white"
+                    }`}
                   >
                     {copied ? "Copied" : "Copy post"}
                   </button>
+                  {sources?.linkedinConnected && (
+                    <button
+                      type="button"
+                      onClick={() => void postNow()}
+                      disabled={posting || posted}
+                      className="pill-primary px-[22px] py-[9px] text-[12.5px] disabled:opacity-60"
+                    >
+                      {posted ? "Posted ✓" : posting ? "Posting…" : "Post now"}
+                    </button>
+                  )}
                 </div>
               </>
             )}

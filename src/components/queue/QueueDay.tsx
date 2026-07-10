@@ -21,12 +21,15 @@ export function QueueDay({
   date,
   isToday,
   posts,
+  suggest = false,
 }: {
   iso: string;
   label: string;
   date: string;
   isToday: boolean;
   posts: QueuePost[];
+  /** Show the dashed suggested-slot chip (a general good-window nudge, not a fake stat). */
+  suggest?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -41,7 +44,7 @@ export function QueueDay({
   };
 
   return (
-    <div className="glass-soft flex min-h-[220px] flex-col gap-2 rounded-[18px] px-2.5 py-3">
+    <div className="glass-soft flex min-h-[268px] flex-col gap-2 rounded-[18px] px-2.5 py-3 transition-shadow duration-300 hover:shadow-[0_16px_38px_rgb(31_45_65/0.14),inset_0_1px_0_rgb(255_255_255/0.9)]">
       <div className="border-b border-[rgb(27_36_48/0.07)] pb-2 text-center">
         <div
           className={`text-[10px] font-bold tracking-[0.08em] ${
@@ -62,7 +65,7 @@ export function QueueDay({
       {posts.map((p) => (
         <div
           key={p.id}
-          className="rounded-xl border border-[rgb(27_36_48/0.06)] bg-[rgb(255_255_255/0.75)] px-2.5 py-2.5 transition-transform duration-200 hover:scale-[1.03] hover:shadow-[0_8px_18px_rgb(31_45_65/0.12)]"
+          className="rounded-xl border border-[rgb(255_255_255/0.75)] bg-[rgb(255_255_255/0.78)] px-2.5 py-2.5 shadow-[0_2px_8px_rgb(31_45_65/0.06),inset_0_1px_0_rgb(255_255_255/0.9)] transition-transform duration-200 hover:scale-[1.03] hover:shadow-[0_8px_18px_rgb(31_45_65/0.14)]"
         >
           <Link href={`/brief/${p.briefId}`} className="block">
             <div className="text-[9.5px] font-bold text-accent">{p.time}</div>
@@ -83,6 +86,19 @@ export function QueueDay({
           </button>
         </div>
       ))}
+
+      {suggest && posts.length === 0 && (
+        <Link
+          href={`/queue?compose=news&slot=${encodeURIComponent(iso)}`}
+          scroll={false}
+          className="rounded-xl border border-dashed border-[rgb(10_102_194/0.32)] bg-[rgb(10_102_194/0.06)] px-2.5 py-2 text-[10px] font-semibold leading-[1.4] text-accent transition-colors hover:bg-[rgb(10_102_194/0.12)]"
+        >
+          Suggested slot · 9:00 AM
+          <span className="mt-0.5 block font-normal text-[rgb(10_102_194/0.75)]">
+            weekday mornings travel well
+          </span>
+        </Link>
+      )}
 
       <div className="flex-1" />
 

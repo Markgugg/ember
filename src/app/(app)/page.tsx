@@ -141,16 +141,16 @@ export default async function Home() {
             </div>
           )}
 
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 flex gap-2.5">
             <ComposeLink
               seg="transcript"
-              className="rounded-full border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.7)] px-3.5 py-[7px] text-[11.5px] font-semibold transition-transform hover:scale-[1.04]"
+              className="flex flex-1 items-center justify-center rounded-[12px] border border-dashed border-[rgb(27_36_48/0.16)] bg-[rgb(255_255_255/0.55)] py-2.5 text-[12px] font-semibold text-ink-2 transition-colors hover:bg-[rgb(255_255_255/0.8)] hover:text-ink"
             >
               Paste transcript
             </ComposeLink>
             <Link
               href="/transcripts"
-              className="rounded-full border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.7)] px-3.5 py-[7px] text-[11.5px] font-semibold transition-transform hover:scale-[1.04]"
+              className="flex flex-1 items-center justify-center rounded-[12px] border border-dashed border-[rgb(27_36_48/0.16)] bg-[rgb(255_255_255/0.55)] py-2.5 text-[12px] font-semibold text-ink-2 transition-colors hover:bg-[rgb(255_255_255/0.8)] hover:text-ink"
             >
               Upload audio
             </Link>

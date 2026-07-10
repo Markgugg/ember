@@ -24,6 +24,9 @@ export async function POST() {
     linkedinUrl: null,
     voiceSamples: [],
     onboardedAt: new Date().toISOString(),
+    linkedinUrn: null,
+    linkedinAccessToken: null,
+    linkedinTokenExpiresAt: null,
   });
   return NextResponse.json({ ok: true, userId: profile.id });
 }

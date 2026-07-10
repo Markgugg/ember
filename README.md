@@ -42,13 +42,29 @@ npm test           # unit tests: provenance gate, scoring, banned phrases
 npm run build      # production build
 ```
 
+## Posting to LinkedIn
+
+Current posts through LinkedIn's **official Share API** — not a browser
+extension driving your session. Setup is ~5 minutes, free, and self-serve:
+
+1. Go to [developer.linkedin.com](https://developer.linkedin.com) → **Create app** (it must be associated with a LinkedIn Page — create a blank company page if you don't have one).
+2. In the app's **Products** tab, request **"Sign In with LinkedIn using OpenID Connect"** and **"Share on LinkedIn"** — both approve instantly.
+3. In **Auth**, add your redirect URL: `http://localhost:3000/api/linkedin/callback` (match the port you run on; add your production URL too).
+4. Copy the Client ID + Secret into `.env.local` as `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET`.
+5. Restart, open **Queue → Connect LinkedIn**, approve. Tokens last ~60 days.
+
+Once connected: every draft gets a **Post now** button, and planned queue
+slots publish automatically when due (`/api/cron/publish`, wired to Vercel
+Cron every 10 minutes in production; hit it manually in dev). Current only
+ever posts drafts **you** wrote and planned — nothing autonomous.
+
 ## What's honest about it
 
 - **Quotes are verbatim or rejected.** Every angle's supporting quote is validated as a strict substring of your transcript, server-side. A quote that doesn't match kills that angle, not the batch.
 - **A story alone can never produce a post.** Pin any headline with an empty vault and Current refuses — there's a unit test for it.
 - **Banned-phrase gate.** Drafts containing AI tells ("delve", "game-changer", "in today's fast-paced world") are regenerated once, then failed. Never shipped.
 - **No invented numbers.** The dashboard counts angles banked, drafts written, and posts shipped — things it actually knows. No follower counts it can't see.
-- **Current never posts for you.** LinkedIn's API won't allow it without an approved app. A queue slot is a reminder, and the Queue page says so.
+- **Posting is explicit.** Nothing goes to LinkedIn unless you press Post now or planned a slot yourself — and without a connection, a slot stays a reminder. The Queue page tells you which mode you're in.
 
 ## Stack
 

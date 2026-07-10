@@ -63,18 +63,23 @@ export default async function TranscriptsPage() {
                       key={a.id}
                       seg="transcript"
                       insight={a.id}
-                      className="inline-flex max-w-full items-center gap-2 rounded-full border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.65)] px-3.5 py-2 text-[12px] font-semibold transition-transform duration-200 hover:scale-[1.03] hover:shadow-[0_6px_16px_rgb(31_45_65/0.1)]"
+                      className="inline-flex max-w-full items-center gap-2 rounded-full border border-[rgb(255_255_255/0.8)] bg-[rgb(255_255_255/0.68)] px-4 py-2 text-[12px] font-semibold shadow-[0_2px_8px_rgb(31_45_65/0.06),inset_0_1px_0_rgb(255_255_255/0.9)] backdrop-blur-md transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_8px_20px_rgb(31_45_65/0.12)]"
                     >
-                      <span
-                        aria-hidden
-                        className="size-1.5 shrink-0 rounded-full bg-accent"
-                      />
+                      <span aria-hidden className="shrink-0 text-ink-4">
+                        “
+                      </span>
                       <span className="truncate">{a.text}</span>
+                      <span aria-hidden className="shrink-0 text-ink-4">
+                        ”
+                      </span>
                       {a.recurrence > 1 && (
                         <span className="shrink-0 rounded-full bg-[rgb(10_102_194/0.09)] px-1.5 py-px text-[10px] text-accent">
                           {a.recurrence}×
                         </span>
                       )}
+                      <span aria-hidden className="shrink-0 font-bold text-accent">
+                        →
+                      </span>
                     </ComposeLink>
                   ))}
                 </div>

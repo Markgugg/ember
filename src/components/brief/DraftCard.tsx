@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Globe } from "lucide-react";
 import { Rationale } from "@/components/ui/AiVoice";
 import { useToast } from "@/components/ui/Toast";
-import { markDraftCopied, notMyVoice, saveDraftEdit } from "@/app/actions";
+import {
+  markDraftCopied,
+  notMyVoice,
+  postDraftNow,
+  saveDraftEdit,
+} from "@/app/actions";
 
 export interface DraftData {
   id: string;
@@ -29,14 +34,18 @@ export function DraftCard({
   draft,
   author,
   copySignal,
+  linkedinConnected = false,
 }: {
   draft: DraftData;
   author: PostAuthor;
   copySignal: number;
+  linkedinConnected?: boolean;
 }) {
   const [body, setBody] = useState(draft.body);
   const [copied, setCopied] = useState(false);
   const [rewriting, setRewriting] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [posted, setPosted] = useState(draft.status === "posted");
   const bodyRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
 
@@ -80,6 +89,21 @@ export function DraftCard({
       toast({ message: "Rewrite failed — the draft is unchanged.", tone: "danger" });
     } finally {
       setRewriting(false);
+    }
+  };
+
+  const postNow = async () => {
+    setPosting(true);
+    try {
+      const result = await postDraftNow(draft.id);
+      if (result.ok) {
+        setPosted(true);
+        toast({ message: "Posted to LinkedIn." });
+      } else {
+        toast({ message: result.message, tone: "danger" });
+      }
+    } finally {
+      setPosting(false);
     }
   };
 
@@ -152,10 +176,24 @@ export function DraftCard({
             <button
               type="button"
               onClick={() => void copy()}
-              className="rounded-full bg-ink px-5 py-2 text-[12.5px] font-semibold text-white transition-transform hover:scale-[1.03]"
+              className={`rounded-full px-5 py-2 text-[12.5px] font-semibold transition-transform hover:scale-[1.03] ${
+                linkedinConnected && !posted
+                  ? "bg-[rgb(27_36_48/0.06)] text-ink hover:bg-[rgb(27_36_48/0.12)]"
+                  : "bg-ink text-white"
+              }`}
             >
               {copied ? "Copied" : "Copy post"}
             </button>
+            {linkedinConnected && (
+              <button
+                type="button"
+                onClick={() => void postNow()}
+                disabled={posting || posted}
+                className="pill-primary px-5 py-2 text-[12.5px] disabled:opacity-60"
+              >
+                {posted ? "Posted ✓" : posting ? "Posting…" : "Post to LinkedIn"}
+              </button>
+            )}
           </div>
         </div>
       </div>

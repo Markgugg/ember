@@ -22,6 +22,7 @@ export default async function BriefPage({
   }
 
   const profile = await repo.getProfile(userId);
+  const { linkedinReady } = await import("@/lib/linkedin");
 
   // Strip embeddings before crossing to the client — 1536 floats of dead weight.
   const data: BriefViewData = {
@@ -33,6 +34,7 @@ export default async function BriefPage({
       name: profile?.displayName ?? "You",
       headline: profile?.headline ?? null,
     },
+    linkedinConnected: linkedinReady(profile),
     discourse: bundle.discourseItem
       ? {
           title: bundle.discourseItem.title,

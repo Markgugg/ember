@@ -2,19 +2,31 @@ import Link from "next/link";
 import { getRepo } from "@/lib/db";
 import { getUserId } from "@/lib/identity";
 import { draftTitle } from "@/lib/view";
+import { linkedinConfigured, linkedinReady } from "@/lib/linkedin";
 import { ComposeLink } from "@/components/composer/ComposeLink";
 import { QueueDay } from "@/components/queue/QueueDay";
 
 export const dynamic = "force-dynamic";
 
 /**
- * The week. Planned slots are reminders — Current never posts on your behalf,
- * and the page says so rather than implying an automation that doesn't exist.
+ * The week. With LinkedIn connected, due slots publish automatically through
+ * the official API; without it, a slot is a reminder — and the page says
+ * which one is true right now.
  */
-export default async function QueuePage() {
+export default async function QueuePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ linkedin?: string; reason?: string }>;
+}) {
   const repo = await getRepo();
   const userId = await getUserId();
-  const drafts = await repo.listDrafts(userId);
+  const [drafts, profile, params] = await Promise.all([
+    repo.listDrafts(userId),
+    repo.getProfile(userId),
+    searchParams,
+  ]);
+  const connected = linkedinReady(profile);
+  const configured = linkedinConfigured();
 
   const unposted = drafts.filter((d) => d.status !== "posted");
   const shipped = drafts.filter((d) => d.status === "posted");
@@ -34,19 +46,47 @@ export default async function QueuePage() {
           </p>
         </div>
         <div className="flex-1" />
+        {connected ? (
+          <span className="flex items-center gap-2 rounded-full border border-[rgb(23_114_69/0.25)] bg-[rgb(23_114_69/0.08)] px-4 py-2 text-[12px] font-semibold text-positive">
+            <span aria-hidden className="size-1.5 rounded-full bg-positive" />
+            LinkedIn connected — due slots post automatically
+          </span>
+        ) : configured ? (
+          <a
+            href="/api/linkedin/connect"
+            className="flex items-center gap-2 rounded-full border border-[rgb(10_102_194/0.3)] bg-white px-4 py-2 text-[12px] font-semibold text-accent shadow-sm transition-transform hover:scale-[1.03]"
+          >
+            <span aria-hidden className="size-1.5 rounded-full bg-accent" />
+            Connect LinkedIn
+          </a>
+        ) : null}
         <ComposeLink seg="news" className="pill-primary px-5 py-[9px] text-[12.5px]">
           + Draft a post
         </ComposeLink>
       </div>
 
+      {params.linkedin === "connected" && (
+        <p className="rounded-[14px] border border-[rgb(23_114_69/0.25)] bg-[rgb(23_114_69/0.07)] px-4 py-3 text-[12.5px] font-medium text-positive">
+          LinkedIn connected. Drafts you plan will post at their slot; you can
+          also post any draft immediately from its page.
+        </p>
+      )}
+      {params.linkedin === "error" && (
+        <p className="rounded-[14px] border border-[rgb(180_35_24/0.25)] bg-[rgb(180_35_24/0.06)] px-4 py-3 text-[12.5px] font-medium text-danger">
+          LinkedIn connection failed
+          {params.reason ? `: ${params.reason}` : ""}. Try again.
+        </p>
+      )}
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
-        {days.map((day) => (
+        {days.map((day, i) => (
           <QueueDay
             key={day.iso}
             iso={day.iso}
             label={day.label}
             date={day.date}
             isToday={day.isToday}
+            suggest={i === 1 || i === 4}
             posts={planned
               .filter((d) => sameDay(d.plannedFor!, day.iso))
               .map((d) => ({
@@ -110,9 +150,27 @@ export default async function QueuePage() {
         <section className="glass-soft flex-1 rounded-[18px] px-5 py-4">
           <h2 className="text-[13px] font-bold">How posting works</h2>
           <p className="mt-1 text-[12px] leading-[1.55] text-ink-2">
-            Current doesn&apos;t post for you. LinkedIn&apos;s API won&apos;t
-            allow it without an approved app, and we&apos;d rather say so than
-            pretend. A planned slot is a reminder: open it, copy, paste.
+            {connected ? (
+              <>
+                You&apos;re connected through LinkedIn&apos;s official Share
+                API. Planned slots publish automatically when they come due,
+                and every draft has a &quot;Post now&quot;. Current only posts
+                what you explicitly drafted and planned — never on its own.
+              </>
+            ) : configured ? (
+              <>
+                Connect LinkedIn above and planned slots publish automatically
+                through the official Share API. Until then, a slot is a
+                reminder: open it, copy, paste.
+              </>
+            ) : (
+              <>
+                Posting uses LinkedIn&apos;s official Share API — no
+                session-hijacking extension. It needs a free LinkedIn developer
+                app: see the README&apos;s &quot;Posting to LinkedIn&quot;
+                section (~5 minutes). Until then, a slot is a reminder.
+              </>
+            )}
           </p>
         </section>
         <section className="glass-soft flex-1 rounded-[18px] px-5 py-4">
