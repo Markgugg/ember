@@ -27,11 +27,21 @@ export const serverEnv = {
     .filter(Boolean),
 };
 
-/** True when the app should serve AI responses from fixtures. */
+/**
+ * True when the *language* work (mining, judging, drafting) is served from
+ * heuristics instead of Claude. Only the Anthropic key gates this — Current
+ * runs fully on Anthropic alone.
+ */
 export const FIXTURE_MODE =
-  process.env.EMBER_FIXTURES === "1" ||
-  !serverEnv.anthropicApiKey ||
-  !serverEnv.openaiApiKey;
+  process.env.EMBER_FIXTURES === "1" || !serverEnv.anthropicApiKey;
+
+/**
+ * True when embeddings come from the local bag-of-words vectorizer rather than
+ * OpenAI. Matching still works (worse), so an OpenAI key is optional — it also
+ * unlocks Whisper for the mic and audio uploads.
+ */
+export const LOCAL_EMBEDDINGS =
+  process.env.EMBER_FIXTURES === "1" || !serverEnv.openaiApiKey;
 
 /** True when no Supabase project is configured — persistence falls back to the in-memory dev store. */
 export const MEMORY_DB =

@@ -1,6 +1,6 @@
 import "server-only";
 import OpenAI from "openai";
-import { FIXTURE_MODE, serverEnv } from "@/lib/env";
+import { LOCAL_EMBEDDINGS, serverEnv } from "@/lib/env";
 import { pseudoEmbedding } from "./fixtures";
 
 let _openai: OpenAI | null = null;
@@ -23,7 +23,7 @@ export async function embed(text: string): Promise<number[]> {
 }
 
 export async function embedBatch(texts: string[]): Promise<number[][]> {
-  if (FIXTURE_MODE) return texts.map(pseudoEmbedding);
+  if (LOCAL_EMBEDDINGS) return texts.map(pseudoEmbedding);
 
   const missing = texts.filter((t) => !cache.has(t));
   if (missing.length > 0) {

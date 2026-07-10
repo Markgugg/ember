@@ -1,5 +1,5 @@
 import "server-only";
-import { FIXTURE_MODE } from "@/lib/env";
+import { LOCAL_EMBEDDINGS } from "@/lib/env";
 import { getRepo } from "@/lib/db";
 import type { DiscourseItem, Insight, TranscriptSource } from "@/lib/types";
 import { embed } from "@/lib/ai/embeddings";
@@ -17,8 +17,8 @@ import {
 
 /** Insight-level dedupe threshold (F3). */
 const DEDUPE_THRESHOLD = 0.92;
-/** Embedding prefilter floor — mode-dependent (see score.ts). */
-const PREFILTER_FLOOR = FIXTURE_MODE ? 0.05 : 0.35;
+/** Embedding prefilter floor — local vectors run far cooler than OpenAI's. */
+const PREFILTER_FLOOR = LOCAL_EMBEDDINGS ? 0.05 : 0.35;
 
 export interface PipelineInput {
   userId: string;

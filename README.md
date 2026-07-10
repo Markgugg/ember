@@ -31,11 +31,16 @@ npm run dev        # → http://localhost:3000
 
 To go further, copy `.env.example` → `.env.local`:
 
-| Key | Unlocks |
-|---|---|
-| `ANTHROPIC_API_KEY` | real insight mining, tension clustering, intersection judging, draft writing, voice rewrite |
-| `OPENAI_API_KEY` | embeddings + Whisper transcription for the record button and audio uploads |
-| `NEXT_PUBLIC_SUPABASE_URL` + keys | persistent Postgres storage (run the migrations in `supabase/migrations/`) |
+| Key | Required? | Unlocks |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | **for real writing** | insight mining, tension clustering, intersection judging, draft writing, voice rewrite, profile scan. Current runs fully on this key alone. |
+| `OPENAI_API_KEY` | optional | real embeddings (better matching than the local fallback) + Whisper for the mic button and audio uploads |
+| `LINKEDIN_CLIENT_ID` / `SECRET` | optional | one-click and scheduled posting — see below |
+| `NEXT_PUBLIC_SUPABASE_URL` + keys | optional | persistent Postgres storage (run the migrations in `supabase/migrations/`) |
+
+Two independent fallbacks, so partial setup degrades gracefully rather than
+all-or-nothing: without Anthropic the *language* is heuristic; without OpenAI
+the *vectors* are a local bag-of-words. Neither one blocks the other.
 
 ```bash
 npm test           # unit tests: provenance gate, scoring, banned phrases
