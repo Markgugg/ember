@@ -37,9 +37,14 @@ const SCAN_SYSTEM = `You draft a LinkedIn content profile for the onboarding of 
 - "beats": 3-5 short topics they'd credibly post about. From real fragments if present, otherwise sensible defaults for a tech professional.
 Never fabricate facts. Vague-but-editable beats invented-but-specific.`;
 
-export async function scanLinkedin(url: string): Promise<ScanResult> {
+export async function scanLinkedin(
+  url: string,
+  /** Text the member pasted from their own profile — the authwall's only honest bypass. */
+  pastedProfileText?: string,
+): Promise<ScanResult> {
   const slug = extractSlug(url);
   const nameGuess = slug ? nameFromSlug(slug) : "";
+  const pasted = pastedProfileText?.trim().slice(0, 4000) ?? "";
 
   // Best-effort public read — usually authwalled, occasionally generous.
   let pageTitle = "";
@@ -72,7 +77,7 @@ export async function scanLinkedin(url: string): Promise<ScanResult> {
     /* blocked or slow — expected; the URL alone still helps */
   }
 
-  const profileFetched = Boolean(pageTitle || pageDescription);
+  const profileFetched = Boolean(pageTitle || pageDescription || pasted);
   // LinkedIn public titles look like "Name - Headline | LinkedIn"
   const titleName = pageTitle.split(/\s+-\s+/)[0]?.replace(/\|.*$/, "").trim();
   const titleHeadline = pageTitle.includes(" - ")
@@ -84,13 +89,16 @@ export async function scanLinkedin(url: string): Promise<ScanResult> {
     return {
       name,
       headline:
+        firstSentences(pasted, 2) ||
         titleHeadline ||
         pageDescription.split(".")[0] ||
         (name
           ? `I'm ${name.split(" ")[0]} — I build things and write about what I learn.`
           : "I build things and write about what I learn."),
       audience: "people in tech who ship things",
-      beats: ["AI & engineering", "building products", "lessons from shipping"],
+      beats: pasted
+        ? keywordBeats(pasted)
+        : ["AI & engineering", "building products", "lessons from shipping"],
       profileFetched,
     };
   }
@@ -103,6 +111,8 @@ export async function scanLinkedin(url: string): Promise<ScanResult> {
       `Profile URL: ${url}`,
       pageTitle && `Public page title: ${pageTitle}`,
       pageDescription && `Public page description: ${pageDescription}`,
+      pasted &&
+        `The member pasted this from their own LinkedIn profile — treat it as authoritative:\n"""\n${pasted}\n"""`,
       !profileFetched &&
         "Note: LinkedIn blocked the anonymous read — only the URL and name are real.",
     ]
@@ -145,6 +155,49 @@ function nameFromSlug(slug: string): string {
 
 function match(html: string, re: RegExp): string {
   return html.match(re)?.[1]?.trim() ?? "";
+}
+
+function firstSentences(text: string, n: number): string {
+  if (!text) return "";
+  return text
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s/)
+    .slice(0, n)
+    .join(" ")
+    .trim();
+}
+
+/**
+ * Fixture-mode beats. With an Anthropic key this whole function is bypassed —
+ * Haiku reads the pasted profile properly. Here we match known topics rather
+ * than "most capitalised word", which otherwise returns things like
+ * "San" and "Diego" from a university name.
+ */
+const TOPIC_PATTERNS: [RegExp, string][] = [
+  [/\bAI agents?\b|\bagentic\b/i, "AI agents"],
+  [/\bLLMs?\b|\blarge language model/i, "LLMs"],
+  [/\bRAG\b|\bpinecone\b|\bvector (db|database|search)/i, "RAG & retrieval"],
+  [/\bmachine learning\b|\bML\b/i, "machine learning"],
+  [/\bfull[- ]stack\b/i, "full-stack engineering"],
+  [/\bTypeScript\b|\bJavaScript\b/i, "TypeScript"],
+  [/\bNext\.js\b|\bReact\b/i, "React & Next.js"],
+  [/\bPython\b/i, "Python"],
+  [/\bSupabase\b|\bPostgres\b|\bSQL\b/i, "databases"],
+  [/\bfounder\b|\bco[- ]?founder\b|\bstartup\b/i, "startups & founding"],
+  [/\bship(ping|ped)?\b|\bbuild(ing)? (real )?products?\b/i, "shipping products"],
+  [/\bintern(ship)?\b|\bstudent\b/i, "breaking into tech"],
+  [/\bdesign\b|\bUX\b|\bUI\b/i, "product design"],
+  [/\bdev ?ops\b|\binfrastructure\b|\bcloud\b/i, "infrastructure"],
+  [/\bsecurity\b/i, "security"],
+  [/\bgrowth\b|\bmarketing\b/i, "growth"],
+];
+
+function keywordBeats(text: string): string[] {
+  const hits = TOPIC_PATTERNS.filter(([re]) => re.test(text)).map(([, label]) => label);
+  const unique = [...new Set(hits)].slice(0, 5);
+  return unique.length >= 2
+    ? unique
+    : [...unique, "AI & engineering", "building products"].slice(0, 3);
 }
 
 function decode(s: string): string {

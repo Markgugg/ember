@@ -21,12 +21,18 @@ export function GET(request: NextRequest) {
   const state = randomUUID();
 
   const response = NextResponse.redirect(linkedinAuthUrl(redirectUri, state));
-  response.cookies.set("linkedin_oauth_state", state, {
+  const cookie = {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     maxAge: 600,
     path: "/",
-  });
+  };
+  response.cookies.set("linkedin_oauth_state", state, cookie);
+  // Where to land afterwards — onboarding sends ?next=/welcome.
+  const next = request.nextUrl.searchParams.get("next");
+  if (next?.startsWith("/")) {
+    response.cookies.set("linkedin_oauth_next", next, cookie);
+  }
   return response;
 }

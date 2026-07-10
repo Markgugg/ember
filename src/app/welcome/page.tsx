@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Check, X } from "lucide-react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { BadgeCheck, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Ambient } from "@/components/layout/Ambient";
 import { CurrentMark } from "@/components/layout/FloatingNav";
 import {
+  linkedinAvailable,
+  loadProfile,
   loadPulsePreview,
   saveProfile,
   scanLinkedinProfile,
@@ -31,13 +33,39 @@ interface Pulse {
  *  3. Review — everything pre-filled and editable ("validate or update")
  */
 export default function Welcome() {
+  return (
+    <Suspense>
+      <WelcomeFlow />
+    </Suspense>
+  );
+}
+
+function WelcomeFlow() {
   const router = useRouter();
+  const params = useSearchParams();
   const [step, setStep] = useState<Step>("connect");
 
   // step 1
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [urlError, setUrlError] = useState<string | null>(null);
   const urlValid = /linkedin\.com\/in\/[^/?#]+/i.test(linkedinUrl.trim());
+
+  // OAuth: available to offer? already connected (verified name)?
+  const [oauthAvailable, setOauthAvailable] = useState(false);
+  const [verifiedName, setVerifiedName] = useState<string | null>(null);
+  useEffect(() => {
+    void linkedinAvailable().then(setOauthAvailable);
+    if (params.get("linkedin") === "connected") {
+      void loadProfile().then((p) => {
+        if (p?.displayName) setVerifiedName(p.displayName);
+        if (p?.linkedinUrl) setLinkedinUrl(p.linkedinUrl);
+      });
+    }
+  }, [params]);
+
+  // paste-your-profile: the honest way past LinkedIn's authwall
+  const [pastedProfile, setPastedProfile] = useState("");
+  const [redrafting, setRedrafting] = useState(false);
 
   // scanning progress (each flips true when its real work finishes)
   const [scanDone, setScanDone] = useState(false);
@@ -67,7 +95,8 @@ export default function Welcome() {
 
     void scanLinkedinProfile(linkedinUrl)
       .then((scan) => {
-        setDisplayName(scan.name);
+        // A name verified through OAuth outranks one guessed from the URL.
+        setDisplayName(verifiedName ?? scan.name);
         setHeadline(scan.headline);
         setAudience(scan.audience);
         setBeats(scan.beats);
@@ -90,6 +119,22 @@ export default function Welcome() {
       return () => clearTimeout(t);
     }
   }, [step, scanDone, pulseDone]);
+
+  /** Re-run the drafter with the member's own pasted profile text. */
+  const redraftFromPaste = async () => {
+    if (pastedProfile.trim().length < 40) return;
+    setRedrafting(true);
+    try {
+      const scan = await scanLinkedinProfile(linkedinUrl, pastedProfile);
+      setHeadline(scan.headline);
+      setAudience(scan.audience);
+      setBeats(scan.beats);
+      if (!verifiedName && scan.name) setDisplayName(scan.name);
+      setProfileFetched(true);
+    } finally {
+      setRedrafting(false);
+    }
+  };
 
   const finish = async () => {
     setFinishing(true);
@@ -160,10 +205,31 @@ export default function Welcome() {
                   {urlError}
                 </p>
               )}
-              <p className="mb-8 text-[11.5px] leading-relaxed text-ink-3">
+              <p className="mb-5 text-[11.5px] leading-relaxed text-ink-3">
                 Required — everything Current writes is anchored to a real
-                person. Posting permissions come later, from the Queue page.
+                person.
               </p>
+
+              {verifiedName ? (
+                <p className="mb-6 flex items-center gap-2 rounded-[12px] border border-[rgb(23_114_69/0.25)] bg-[rgb(23_114_69/0.07)] px-3.5 py-2.5 text-[12.5px] font-medium text-positive">
+                  <BadgeCheck size={15} aria-hidden />
+                  Verified as {verifiedName} — LinkedIn connected, posting
+                  enabled.
+                </p>
+              ) : oauthAvailable ? (
+                <div className="mb-6">
+                  <a
+                    href="/api/linkedin/connect?next=/welcome"
+                    className="flex items-center justify-center gap-2 rounded-[12px] border border-[rgb(10_102_194/0.3)] bg-white px-4 py-2.5 text-[12.5px] font-semibold text-accent shadow-sm transition-transform hover:scale-[1.02]"
+                  >
+                    <BadgeCheck size={15} aria-hidden />
+                    Sign in with LinkedIn to verify your name
+                  </a>
+                  <p className="mt-1.5 text-[11px] text-ink-3">
+                    Optional now — it also turns on one-click posting later.
+                  </p>
+                </div>
+              ) : null}
 
               <div className="flex justify-end">
                 <Button onClick={startScan} disabled={!urlValid}>
@@ -202,7 +268,7 @@ export default function Welcome() {
                         ? "reading what your public page allows"
                         : profileFetched
                           ? "public page read — drafting from it"
-                          : "LinkedIn kept the page private — drafted from your URL, you'll review it next"
+                          : "LinkedIn blocks app reads — you'll paste your About next, it takes 5 seconds"
                     }
                   />
                   <ScanRow
@@ -231,21 +297,53 @@ export default function Welcome() {
                 Review your profile
               </h1>
               <p className="mb-5 text-[13px] leading-relaxed text-ink-2">
-                Validate or update what Current found
                 {profileFetched
-                  ? " on your public profile"
-                  : " — LinkedIn kept your page private, so this is a starting draft"}
-                . You can change all of it later in settings.
+                  ? "Validate or update what Current found. You can change all of it later in settings."
+                  : "A starting draft — paste your profile below and Current will rewrite it from your real words."}
               </p>
 
               <div className="flex max-h-[58vh] flex-col gap-4 overflow-y-auto pr-1">
+                {!profileFetched && (
+                  <ReviewCard title="Make this yours in 5 seconds">
+                    <p className="mb-2.5 text-[12px] leading-relaxed text-ink-2">
+                      LinkedIn blocks apps from reading profiles. Open your
+                      profile, copy your headline and About section, paste it
+                      here — Current will re-draft everything below from your
+                      real words.
+                    </p>
+                    <textarea
+                      value={pastedProfile}
+                      onChange={(e) => setPastedProfile(e.target.value)}
+                      placeholder="Paste your LinkedIn headline + About section…"
+                      className={`${field} min-h-[86px] resize-none`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void redraftFromPaste()}
+                      disabled={redrafting || pastedProfile.trim().length < 40}
+                      className="pill-primary mt-2.5 px-4 py-2 text-[12px] disabled:opacity-45"
+                    >
+                      {redrafting ? "Re-drafting…" : "Re-draft from this"}
+                    </button>
+                  </ReviewCard>
+                )}
+
                 <ReviewCard title="Who you are">
-                  <input
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Your name"
-                    className={`${field} mb-2`}
-                  />
+                  <div className="relative mb-2">
+                    <input
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Your name"
+                      className={field}
+                    />
+                    {verifiedName && displayName === verifiedName && (
+                      <BadgeCheck
+                        size={15}
+                        aria-label="Verified through LinkedIn"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-positive"
+                      />
+                    )}
+                  </div>
                   <textarea
                     value={headline}
                     onChange={(e) => setHeadline(e.target.value)}

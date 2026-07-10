@@ -56,14 +56,37 @@ export async function exchangeCode(
   };
 }
 
-/** The member's stable id (`sub`) → author URN for posting. */
-export async function fetchMemberUrn(accessToken: string): Promise<string> {
+export interface MemberIdentity {
+  /** Author URN for posting. */
+  urn: string;
+  /** Verified from LinkedIn — not scraped, not guessed. */
+  name: string | null;
+}
+
+/**
+ * OpenID Connect userinfo: the member's stable id and real name.
+ * Note the ceiling — `openid profile` does NOT return headline, About, or
+ * posts. Those need LinkedIn Partner Program approval, so Current asks the
+ * member to paste them rather than pretending to know.
+ */
+export async function fetchMemberIdentity(
+  accessToken: string,
+): Promise<MemberIdentity> {
   const res = await fetch("https://api.linkedin.com/v2/userinfo", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) throw new Error(`linkedin userinfo failed (${res.status})`);
-  const json = (await res.json()) as { sub: string };
-  return `urn:li:person:${json.sub}`;
+  const json = (await res.json()) as {
+    sub: string;
+    name?: string;
+    given_name?: string;
+    family_name?: string;
+  };
+  const name =
+    json.name ??
+    [json.given_name, json.family_name].filter(Boolean).join(" ") ??
+    null;
+  return { urn: `urn:li:person:${json.sub}`, name: name || null };
 }
 
 export function linkedinReady(profile: Profile | null): boolean {

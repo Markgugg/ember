@@ -107,14 +107,27 @@ export async function loadComposerSources(): Promise<ComposerSources> {
   };
 }
 
-/** Onboarding: scan the LinkedIn URL into an editable profile draft. */
-export async function scanLinkedinProfile(url: string) {
+/**
+ * Onboarding: scan the LinkedIn URL into an editable profile draft.
+ * `pastedProfileText` (your own About/headline text) is the honest way past
+ * LinkedIn's authwall — it beats any scrape because it's authoritative.
+ */
+export async function scanLinkedinProfile(
+  url: string,
+  pastedProfileText?: string,
+) {
   const trimmed = url.trim();
   if (!/linkedin\.com\/in\/[^/?#]+/i.test(trimmed)) {
     throw new Error("That doesn't look like a linkedin.com/in/… profile URL.");
   }
   const { scanLinkedin } = await import("@/lib/scan");
-  return scanLinkedin(trimmed);
+  return scanLinkedin(trimmed, pastedProfileText);
+}
+
+/** Is the LinkedIn OAuth app configured? Drives the onboarding connect button. */
+export async function linkedinAvailable(): Promise<boolean> {
+  const { linkedinConfigured } = await import("@/lib/linkedin");
+  return linkedinConfigured();
 }
 
 /** Onboarding's live scan step. */
