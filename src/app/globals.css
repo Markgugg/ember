@@ -54,7 +54,6 @@
   --animate-spring-in: springIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-pulse-dot: pulseDot 1.8s infinite;
   --animate-spin-fast: spin 0.7s linear infinite;
-  --animate-shape-in: shapeIn 0.9s ease both;
 }
 
 @keyframes fadeUp {
@@ -88,15 +87,6 @@
   }
   50% {
     opacity: 0.3;
-  }
-}
-/* Ambient grid marks crossfade in rather than snapping between shapes. */
-@keyframes shapeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
 @keyframes spin {

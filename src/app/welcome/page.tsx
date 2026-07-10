@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BadgeCheck, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Ambient } from "@/components/layout/Ambient";
-import { BackgroundShapes } from "@/components/ui/background-shapes";
+import { CurrentField } from "@/components/ui/current-field";
 import { CurrentMark } from "@/components/layout/FloatingNav";
 import {
   linkedinAvailable,
@@ -446,29 +446,17 @@ function WelcomeFlow() {
             "linear-gradient(150deg, #0a66c2 0%, #0b5cb0 55%, #08417c 100%)",
         }}
       >
-        {/* Ambient texture. The component masks itself thinner behind the
-            centred copy, so this layer can stay crisp instead of being dimmed
-            into mush. Decorative, so it's aria-hidden. */}
-        <div className="pointer-events-none absolute inset-0 opacity-[0.30]">
-          <BackgroundShapes
-            width={900}
-            height={1000}
-            cellSize={46}
-            strokeWidth={6}
-            colors={["white"]}
-            minInterval={900}
-            maxInterval={2400}
-            churn={0.012}
-            preserveAspectRatio="xMidYMid slice"
-            className="h-full w-full"
-          />
-        </div>
+        {/* Two wave sources, light only where they meet: the product's claim,
+            drawn. Decorative, so it's aria-hidden inside the component. */}
+        <CurrentField className="pointer-events-none absolute inset-0 h-full w-full" />
+
+        {/* Just enough shadow under the copy to hold contrast over a node. */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse at 50% 45%, rgb(10 65 124 / 0.35) 0%, transparent 70%)",
+              "radial-gradient(ellipse at 50% 46%, rgb(8 55 106 / 0.45) 0%, rgb(8 55 106 / 0.12) 45%, transparent 70%)",
           }}
         />
 

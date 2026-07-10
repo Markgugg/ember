@@ -43,3 +43,6 @@ next-env.d.ts
 # Local dev database snapshot (contains your transcripts) — never commit
 .ember-dev-db.json
 .ember-dev-db.json.tmp
+
+# Design-review render from scripts/preview-field.mjs
+.field-preview.png
