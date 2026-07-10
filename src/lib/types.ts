@@ -21,6 +21,8 @@ export interface Profile {
   headline: string | null;
   audience: string | null;
   linkedinUrl: string | null;
+  /** Topics you post about — seeded by the onboarding scan, always editable. */
+  beats: string[];
   voiceSamples: string[];
   onboardedAt: string | null;
   /* LinkedIn publishing (official "Share on LinkedIn" API, w_member_social).

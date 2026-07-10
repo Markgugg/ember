@@ -22,6 +22,7 @@ export async function POST() {
       "CS student & co-founder — full-stack products with TypeScript and Next.js",
     audience: "founders and AI engineers",
     linkedinUrl: null,
+    beats: ["AI agents", "shipping products", "student founders"],
     voiceSamples: [],
     onboardedAt: new Date().toISOString(),
     linkedinUrn: null,

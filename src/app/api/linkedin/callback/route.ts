@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
       headline: existing?.headline ?? null,
       audience: existing?.audience ?? null,
       linkedinUrl: existing?.linkedinUrl ?? null,
+      beats: existing?.beats ?? [],
       voiceSamples: existing?.voiceSamples ?? [],
       onboardedAt: existing?.onboardedAt ?? new Date().toISOString(),
       linkedinUrn: urn,

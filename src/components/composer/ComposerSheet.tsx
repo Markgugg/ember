@@ -215,7 +215,7 @@ export function ComposerSheet() {
         role="dialog"
         aria-modal="true"
         aria-label="New post"
-        className="glass flex h-[min(680px,92vh)] w-full max-w-[960px] animate-spring-in flex-col overflow-hidden rounded-[26px]"
+        className="glass flex h-[min(680px,92vh)] w-full max-w-[960px] animate-spring-in flex-col overflow-hidden rounded-[26px] text-ink"
         style={{
           background: "rgb(255 255 255 / 0.78)",
           backdropFilter: "blur(44px) saturate(1.8)",
@@ -225,7 +225,9 @@ export function ComposerSheet() {
       >
         {/* header */}
         <div className="flex flex-none items-center gap-3.5 px-[22px] py-4">
-          <span className="text-base font-bold tracking-[-0.01em]">New post</span>
+          <span className="text-base font-bold tracking-[-0.01em] text-ink">
+            New post
+          </span>
           <div className="flex gap-0.5 rounded-xl bg-[rgb(27_36_48/0.06)] p-[3px]">
             {SEGS.map((s) => (
               <button
@@ -235,7 +237,7 @@ export function ComposerSheet() {
                 aria-pressed={seg === s.key}
                 className={`rounded-[9px] px-[15px] py-1.5 text-xs font-semibold transition-colors duration-200 ${
                   seg === s.key
-                    ? "bg-white text-ink shadow-[0_2px_8px_rgb(31_45_65/0.1)]"
+                    ? "bg-accent text-white shadow-[0_2px_10px_rgb(10_102_194/0.35)]"
                     : "text-ink-2 hover:bg-[rgb(255_255_255/0.6)]"
                 }`}
               >

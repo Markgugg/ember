@@ -1,3 +1,5 @@
+import { getRepo } from "@/lib/db";
+import { getUserId } from "@/lib/identity";
 import { getStories, formatAge } from "@/lib/view";
 import { StoryCard, LiveBadge } from "@/components/news/StoryCard";
 
@@ -6,10 +8,15 @@ export const dynamic = "force-dynamic";
 /**
  * Source 1 — what the AI world is arguing about, right now.
  * Pulled live from Hacker News at request time; clustered into tensions
- * when an Anthropic key is present.
+ * when an Anthropic key is present. The chips are your beats from onboarding.
  */
 export default async function NewsPage() {
-  const { stories, live, snapshotAgeHours } = await getStories();
+  const repo = await getRepo();
+  const [{ stories, live, snapshotAgeHours }, profile] = await Promise.all([
+    getStories(),
+    repo.getProfile(await getUserId()),
+  ]);
+  const beats = profile?.beats ?? [];
 
   return (
     <div className="mx-auto flex max-w-[1200px] animate-fade-up flex-col gap-[18px] px-8 pb-12 pt-[100px]">
@@ -28,9 +35,11 @@ export default async function NewsPage() {
           </p>
         </div>
         <div className="flex-1" />
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex max-w-[420px] flex-wrap justify-end gap-1.5">
           <Beat active>All</Beat>
-          <Beat>Hot</Beat>
+          {beats.map((b) => (
+            <Beat key={b}>{b}</Beat>
+          ))}
         </div>
       </div>
 

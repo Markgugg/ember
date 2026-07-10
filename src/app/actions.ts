@@ -45,6 +45,7 @@ const profileSchema = z.object({
   headline: z.string().max(300).optional(),
   audience: z.string().max(200).optional(),
   linkedinUrl: z.string().max(300).optional(),
+  beats: z.array(z.string().max(60)).max(8).optional(),
   voiceSamples: z.array(z.string().max(5000)).max(3).optional(),
 });
 
@@ -63,6 +64,10 @@ export async function saveProfile(
     headline: or(parsed.headline?.trim(), existing?.headline ?? null),
     audience: or(parsed.audience?.trim(), existing?.audience ?? null),
     linkedinUrl: or(parsed.linkedinUrl?.trim(), existing?.linkedinUrl ?? null),
+    beats:
+      parsed.beats?.map((b) => b.trim()).filter(Boolean) ??
+      existing?.beats ??
+      [],
     voiceSamples:
       parsed.voiceSamples?.map((s) => s.trim()).filter(Boolean) ??
       existing?.voiceSamples ??
@@ -100,6 +105,16 @@ export async function loadComposerSources(): Promise<ComposerSources> {
     live,
     linkedinConnected: linkedinReady(profile),
   };
+}
+
+/** Onboarding: scan the LinkedIn URL into an editable profile draft. */
+export async function scanLinkedinProfile(url: string) {
+  const trimmed = url.trim();
+  if (!/linkedin\.com\/in\/[^/?#]+/i.test(trimmed)) {
+    throw new Error("That doesn't look like a linkedin.com/in/… profile URL.");
+  }
+  const { scanLinkedin } = await import("@/lib/scan");
+  return scanLinkedin(trimmed);
 }
 
 /** Onboarding's live scan step. */
