@@ -371,6 +371,23 @@ export const supabaseRepo: Repo = {
       )
       .select();
     throwOn(error, "insertSnapshot");
+
+    // Prune: keep only the newest two snapshots. Briefs reference discourse
+    // items with ON DELETE SET NULL, so old briefs survive losing their story.
+    const { data: recent } = await admin()
+      .from("discourse_items")
+      .select("snapshot_at")
+      .order("snapshot_at", { ascending: false })
+      .limit(400);
+    const keep = [...new Set((recent ?? []).map((r) => r.snapshot_at))].slice(0, 2);
+    if (keep.length === 2) {
+      const { error: pruneError } = await admin()
+        .from("discourse_items")
+        .delete()
+        .lt("snapshot_at", keep[1]);
+      throwOn(pruneError, "insertSnapshot.prune");
+    }
+
     return (data ?? []).map(toDiscourse);
   },
 

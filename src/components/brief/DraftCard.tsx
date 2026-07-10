@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/Toast";
 import {
   markDraftCopied,
   notMyVoice,
+  planDraft,
   postDraftNow,
   saveDraftEdit,
 } from "@/app/actions";
@@ -107,7 +108,34 @@ export function DraftCard({
     }
   };
 
+  const [slot, setSlot] = useState(defaultSlot());
+  const [scheduling, setScheduling] = useState(false);
+  const schedule = async () => {
+    setScheduling(true);
+    try {
+      await planDraft(draft.id, new Date(slot).toISOString());
+      toast({
+        message: linkedinConnected
+          ? `Scheduled — it posts itself at ${new Date(slot).toLocaleString()}.`
+          : `Slot saved for ${new Date(slot).toLocaleString()}. Connect LinkedIn to have it post itself.`,
+      });
+    } catch {
+      toast({ message: "Couldn't save that slot.", tone: "danger" });
+    } finally {
+      setScheduling(false);
+    }
+  };
+
   const initial = (author.name || "Y")[0].toUpperCase();
+
+  function defaultSlot(): string {
+    // tomorrow 09:00 local, formatted for <input type="datetime-local">
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(9, 0, 0, 0);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
 
   return (
     <div>
@@ -146,6 +174,36 @@ export function DraftCard({
           className="whitespace-pre-wrap px-5 pb-4 text-[15px] leading-relaxed outline-none"
         >
           {body}
+        </div>
+
+        {/* scheduling row — the slot fires by itself once LinkedIn is connected */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-[rgb(27_36_48/0.07)] bg-[rgb(255_255_255/0.4)] px-4 py-2.5">
+          <label
+            htmlFor={`slot-${draft.id}`}
+            className="text-[11.5px] font-semibold text-ink-2"
+          >
+            Schedule
+          </label>
+          <input
+            id={`slot-${draft.id}`}
+            type="datetime-local"
+            value={slot}
+            onChange={(e) => setSlot(e.target.value)}
+            className="rounded-full border border-[rgb(27_36_48/0.1)] bg-white px-3 py-1.5 text-[11.5px] outline-none focus:border-accent"
+          />
+          <button
+            type="button"
+            onClick={() => void schedule()}
+            disabled={scheduling || posted}
+            className="rounded-full bg-[rgb(27_36_48/0.06)] px-3.5 py-1.5 text-[11.5px] font-semibold transition-colors hover:bg-[rgb(27_36_48/0.12)] disabled:opacity-50"
+          >
+            {scheduling ? "Saving…" : "Add to queue"}
+          </button>
+          <span className="text-[10.5px] text-ink-3">
+            {linkedinConnected
+              ? "posts itself at that time"
+              : "reminder only until LinkedIn is connected"}
+          </span>
         </div>
 
         <div className="flex items-center justify-between border-t border-[rgb(27_36_48/0.07)] bg-[rgb(255_255_255/0.4)] px-4 py-3">

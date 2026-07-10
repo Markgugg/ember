@@ -4,8 +4,12 @@ import type { DiscourseItem } from "@/lib/types";
 import { fixtureDiscourse } from "@/lib/ai/fixtures";
 import { buildLiveItems } from "./live";
 
-/** Real-time means real-time: snapshots older than this re-pull at session time. */
-const MAX_SNAPSHOT_AGE_MS = 3 * 60 * 60 * 1000;
+/**
+ * Real-time means real-time: a snapshot older than this is re-pulled on the
+ * next request (or by the scheduler), and stale snapshots are pruned on write.
+ */
+const MAX_SNAPSHOT_AGE_MS =
+  Number(process.env.EMBER_SNAPSHOT_TTL_MINUTES ?? 60) * 60 * 1000;
 
 export interface SnapshotResult {
   items: DiscourseItem[];
@@ -19,6 +23,16 @@ export interface SnapshotResult {
  * perennial-debate set only when the live pull fails — and says so via
  * `live: false`, which the reasoning stream surfaces honestly.
  */
+/** Force a fresh pull, ignoring the TTL. Used by the scheduler. */
+export async function refreshSnapshot(repo: Repo): Promise<SnapshotResult> {
+  const snapshotAt = new Date().toISOString();
+  try {
+    return { items: await repo.insertSnapshot(await buildLiveItems(snapshotAt)), live: true };
+  } catch {
+    return { items: await repo.latestSnapshot(), live: false };
+  }
+}
+
 export async function getOrSeedSnapshot(repo: Repo): Promise<SnapshotResult> {
   const existing = await repo.latestSnapshot();
   const fresh =
