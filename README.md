@@ -28,7 +28,7 @@ Same app, same data, same LinkedIn connection.
 
 ## The two sources
 
-**Today in AI** — a live feed pulled from Hacker News at request time (front page + the last 24 hours of AI stories, ranked by engagement). With an Anthropic key, stories are clustered into *tensions*: one side vs the other. Refreshes every few minutes.
+**Today in AI** — a live feed pulled from Hacker News (front page + the last 48 hours of AI stories, ranked by engagement). With an Anthropic key, stories are clustered into *tensions*: one side vs the other. Cached for an hour, refreshed automatically in the background once it goes stale.
 
 **Your voice** — meetings, podcasts, voice memos, customer calls. Paste, upload, or record. Current mines each conversation into *angles*: the claims you made, quoted verbatim from your own words.
 
