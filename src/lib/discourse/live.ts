@@ -24,37 +24,62 @@ interface HNStory {
 }
 
 const AI_PATTERN =
-  /\b(ai|llm|llms|gpt|claude|openai|anthropic|gemini|deepseek|mistral|copilot|agent|agents|agentic|model|models|transformer|rag|inference|fine-?tun|prompt|neural|machine learning|ml)\b/i;
+  /\b(ai|a\.i\.|agi|llm|llms|gpt|chatgpt|claude|openai|anthropic|gemini|deepseek|mistral|llama|grok|copilot|agent|agents|agentic|model|models|transformer|rag|retrieval|inference|fine-?tun|prompt|prompting|neural|machine learning|deep learning|ml|nvidia|gpu|cuda|training|benchmark|multimodal|diffusion|embedding|embeddings|hugging ?face|reasoning|chatbot|mcp|context window|tokens?)\b/i;
 
-async function fetchJson(url: string): Promise<{ hits: HNStory[] }> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!res.ok) throw new Error(`hn ${res.status}`);
-  return res.json();
+/**
+ * One front-page sweep plus a term-by-term search. A single "AI" query only
+ * ever surfaced ~11 usable stories, which is not enough material for nine
+ * distinct arguments — the board came back half empty. Widening the terms and
+ * the window (48h, >10 points) puts ~50 stories in the pool.
+ */
+const SEARCH_TERMS = [
+  "AI",
+  "LLM",
+  "OpenAI",
+  "Anthropic",
+  "agents",
+  "machine learning",
+  "inference",
+];
+
+/** Individual query failures must not sink the whole pull. */
+async function fetchJsonSafe(url: string): Promise<HNStory[]> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { hits?: HNStory[] };
+    return json.hits ?? [];
+  } catch {
+    return [];
+  }
 }
 
-/** Front page + top AI stories from the last 24h, deduped, engagement-ranked. */
-export async function fetchAiStories(): Promise<HNStory[]> {
-  const since = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
-  const [front, recent] = await Promise.all([
-    fetchJson(
-      "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=30",
-    ),
-    fetchJson(
-      `https://hn.algolia.com/api/v1/search?query=AI&tags=story&numericFilters=created_at_i>${since},points>20&hitsPerPage=30`,
-    ),
-  ]);
+export const engagementOf = (s: HNStory) => s.points + s.num_comments * 2;
 
+/** Front page + AI stories from the last 48h, deduped, engagement-ranked. */
+export async function fetchAiStories(): Promise<HNStory[]> {
+  const since = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
+  const urls = [
+    "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=50",
+    ...SEARCH_TERMS.map(
+      (t) =>
+        `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(t)}&tags=story&numericFilters=created_at_i>${since},points>10&hitsPerPage=40`,
+    ),
+  ];
+
+  const batches = await Promise.all(urls.map(fetchJsonSafe));
   const seen = new Set<string>();
-  return [...front.hits, ...recent.hits]
-    .filter((s) => {
-      if (!s.title || seen.has(s.objectID)) return false;
-      seen.add(s.objectID);
-      return AI_PATTERN.test(s.title);
-    })
-    .sort(
-      (a, b) => b.points + b.num_comments * 2 - (a.points + a.num_comments * 2),
-    )
-    .slice(0, 18);
+  const stories: HNStory[] = [];
+  for (const hit of batches.flat()) {
+    if (!hit.title || seen.has(hit.objectID)) continue;
+    seen.add(hit.objectID);
+    if (AI_PATTERN.test(hit.title)) stories.push(hit);
+  }
+
+  if (stories.length === 0) throw new Error("no AI stories found");
+  return stories
+    .sort((a, b) => engagementOf(b) - engagementOf(a))
+    .slice(0, 24);
 }
 
 /** The board never shows more than this. Nine live conversations, ranked. */
@@ -75,7 +100,7 @@ const clusterSchema = z.object({
     .max(MAX_DISCOURSE_ITEMS),
 });
 
-const CLUSTER_SYSTEM = `You are the discourse mapper of ember. You receive today's AI-related Hacker News stories. Cluster them into 5-9 discourse items, the conversations people are actually having, not headlines. For each: a title phrased as the conversation ("Are agents ready for production?" not "Company ships agent"), a 1-2 sentence summary of what's being argued, and where a genuine disagreement exists, the two stances (stanceA vs stanceB), null for both when the story isn't divisive. Reference source stories by index. Skip stories that are pure product announcements with nothing arguable. Never use em dashes, en dashes, or semicolons in a title or summary; write plain sentences instead.`;
+const CLUSTER_SYSTEM = `You are the discourse mapper of ember. You receive today's AI-related Hacker News stories. Cluster them into 9 discourse items, the conversations people are actually having, not headlines. Return fewer than 9 only when the stories genuinely collapse into fewer distinct arguments; prefer splitting a broad cluster over merging two real disagreements. For each: a title phrased as the conversation ("Are agents ready for production?" not "Company ships agent"), a 1-2 sentence summary of what's being argued, and where a genuine disagreement exists, the two stances (stanceA vs stanceB), null for both when the story isn't divisive. Reference source stories by index. Skip stories that are pure product announcements with nothing arguable. Never use em dashes, en dashes, or semicolons in a title or summary; write plain sentences instead.`;
 
 /** Build DiscourseItems from live stories — Haiku clustering or heuristic mapping. */
 export async function buildLiveItems(
@@ -170,10 +195,30 @@ export async function buildLiveItems(
   }
 
   // A cluster with no surviving source story can't be cited, so drop it.
-  // Then rank by engagement and keep the top nine: that ordering is what
-  // rotates yesterday's quiet threads off the board as louder ones arrive.
+  raw = raw.filter((r) => r.stories.length > 0);
+
+  // Backfill toward nine. The clusterer merges aggressively and sometimes
+  // returns five, which left the board looking empty on a day when plenty was
+  // happening. Any strong story it didn't use becomes an item on its own.
+  if (raw.length < MAX_DISCOURSE_ITEMS) {
+    const used = new Set(raw.flatMap((r) => r.stories.map((s) => s.objectID)));
+    for (const story of stories) {
+      if (raw.length >= MAX_DISCOURSE_ITEMS) break;
+      if (used.has(story.objectID)) continue;
+      used.add(story.objectID);
+      raw.push({
+        title: story.title,
+        summary: story.title,
+        stanceA: null,
+        stanceB: null,
+        stories: [story],
+      });
+    }
+  }
+
+  // Rank by engagement and keep the top nine: that ordering is what rotates
+  // yesterday's quiet threads off the board as louder ones arrive.
   raw = raw
-    .filter((r) => r.stories.length > 0)
     .sort((a, b) => velocityOf(b.stories) - velocityOf(a.stories))
     .slice(0, MAX_DISCOURSE_ITEMS);
 

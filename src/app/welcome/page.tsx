@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BadgeCheck, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Ambient } from "@/components/layout/Ambient";
+import { BackgroundShapes } from "@/components/ui/background-shapes";
 import { CurrentMark } from "@/components/layout/FloatingNav";
 import {
   linkedinAvailable,
@@ -445,7 +446,31 @@ function WelcomeFlow() {
             "linear-gradient(150deg, #0a66c2 0%, #0b5cb0 55%, #08417c 100%)",
         }}
       >
-        <div className="flex w-full max-w-md flex-col items-center gap-6 px-12">
+        {/* Ambient texture. Sits under the gradient's own vignette so the
+            copy keeps its contrast; decorative, so it's aria-hidden. */}
+        <div className="pointer-events-none absolute inset-0 opacity-[0.16]">
+          <BackgroundShapes
+            width={900}
+            height={1000}
+            cellSize={36}
+            strokeWidth={7}
+            colors={["white"]}
+            minInterval={1400}
+            maxInterval={4200}
+            preserveAspectRatio="xMidYMid slice"
+            className="h-full w-full"
+          />
+        </div>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse at 50% 45%, rgb(10 65 124 / 0.55) 0%, transparent 65%)",
+          }}
+        />
+
+        <div className="relative flex w-full max-w-md flex-col items-center gap-6 px-12">
           <h2 className="text-center text-[27px] font-bold leading-tight tracking-[-0.02em] text-white">
             Write the posts <span className="text-[#bfdcf7]">only you</span>{" "}
             could have written

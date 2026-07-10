@@ -1,6 +1,7 @@
 import "server-only";
 import { getRepo } from "@/lib/db";
 import { getOrSeedSnapshot } from "@/lib/discourse";
+import { sanitizePunctuation } from "@/lib/ai/style";
 import type { DiscourseItem, Draft, Insight } from "@/lib/types";
 
 /**
@@ -19,7 +20,10 @@ export interface StoryView {
   /** Domain monogram + deterministic hue — no scraped article images. */
   mono: string;
   hue: number;
-  url: string;
+  /** The article, paper, or repo being discussed. Null for HN self-posts. */
+  articleUrl: string | null;
+  /** The Hacker News thread where the argument is actually happening. */
+  discussionUrl: string;
   domain: string;
   buzz: string;
 }
@@ -48,15 +52,18 @@ export function toStoryView(item: DiscourseItem): StoryView {
   const age = src ? formatAge(src.ageHours) : "";
   return {
     id: item.id,
-    title: item.title,
-    summary: item.summary,
+    // Titles and summaries are model-written, so they obey the same
+    // punctuation rules as posts. Older snapshots still hold em dashes.
+    title: sanitizePunctuation(item.title),
+    summary: sanitizePunctuation(item.summary),
     stanceA: item.stanceA,
     stanceB: item.stanceB,
     velocity: item.velocity,
     kicker: `${domain.replace(/^www\./, "").split(".")[0].toUpperCase()}${age ? ` · ${age.toUpperCase()}` : ""}`,
     mono: monogram(domain),
     hue: hueOf(domain),
-    url: src?.url ?? "https://news.ycombinator.com/",
+    articleUrl: src?.articleUrl ?? null,
+    discussionUrl: src?.url ?? "https://news.ycombinator.com/",
     domain,
     buzz: src?.meta ?? "",
   };

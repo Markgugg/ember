@@ -1,12 +1,19 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { ArrowUpRight, MessagesSquare } from "lucide-react";
 import type { StoryView } from "@/lib/view";
 
 /**
- * A story from the live AI feed. The mockup drops a scraped article image
- * here; we render a deterministic source plate instead — a real favicon on
- * the domain's own hue. Nothing invented, nothing broken.
+ * A story from the live AI feed.
+ *
+ * Two destinations, kept distinct: the article being discussed, and the thread
+ * discussing it. The card can't be one big <button> any more, because a button
+ * may not contain links — so drafting is its own control and the source is
+ * reachable without drafting first.
+ *
+ * The mockup drops a scraped article image in the plate; we render a favicon on
+ * the domain's own hue instead. Nothing invented, nothing broken.
  */
 export function StoryCard({
   story,
@@ -24,36 +31,81 @@ export function StoryCard({
   const draft = () =>
     router.push(`${pathname}?compose=news&story=${story.id}`, { scroll: false });
 
+  // Self-posts have no outbound article: the thread IS the source.
+  const readUrl = story.articleUrl ?? story.discussionUrl;
+
   return (
-    <button
-      type="button"
-      onClick={draft}
+    <div
       style={width ? { width, flex: "none" } : undefined}
-      className="glass glass-lift flex flex-col rounded-[20px] p-2.5 pb-3.5 text-left"
+      className="glass glass-lift group flex flex-col rounded-[20px] p-2.5 pb-3.5 text-left"
     >
-      <SourcePlate story={story} />
+      <a
+        href={readUrl}
+        target="_blank"
+        rel="noreferrer noopener"
+        aria-label={`Read: ${story.title}`}
+        className="relative block rounded-[13px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      >
+        <SourcePlate story={story} />
+      </a>
+
       <div className="px-2 pt-2.5">
         <div className="text-[10.5px] font-semibold text-ink-2">
           {story.kicker}
         </div>
-        <div className="mt-1.5 text-[14px] font-semibold leading-[1.35] tracking-[-0.01em]">
+
+        <a
+          href={readUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="mt-1.5 block text-[14px] font-semibold leading-[1.35] tracking-[-0.01em] hover:text-accent hover:underline decoration-1 underline-offset-2"
+        >
           {story.title}
-        </div>
+        </a>
+
         {showExcerpt && (
           <p className="mt-1.5 line-clamp-2 text-[12px] leading-[1.5] text-ink-2">
             {story.stanceA ? `${story.stanceA} vs ${story.stanceB}` : story.summary}
           </p>
         )}
-        <div className="mt-2.5 flex items-center">
-          <span className="pill-tinted px-3.5 py-1.5 text-[11.5px]">
+
+        <div className="mt-2.5 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={draft}
+            className="pill-tinted px-3.5 py-1.5 text-[11.5px] transition-transform hover:scale-[1.03]"
+          >
             Draft from this
-          </span>
-          {story.buzz && (
-            <span className="ml-auto text-[11px] text-ink-4">{story.buzz}</span>
-          )}
+          </button>
+
+          <div className="ml-auto flex items-center gap-2.5">
+            {story.articleUrl && (
+              <a
+                href={story.discussionUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                title="Read the discussion on Hacker News"
+                className="flex items-center gap-1 text-[11px] text-ink-4 transition-colors hover:text-accent"
+              >
+                <MessagesSquare size={12} aria-hidden />
+                {story.buzz || "discussion"}
+              </a>
+            )}
+            {!story.articleUrl && story.buzz && (
+              <a
+                href={story.discussionUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="flex items-center gap-1 text-[11px] text-ink-4 transition-colors hover:text-accent"
+              >
+                <MessagesSquare size={12} aria-hidden />
+                {story.buzz}
+              </a>
+            )}
+          </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -90,11 +142,17 @@ function SourcePlate({ story }: { story: StoryView }) {
           {story.domain.replace(/^www\./, "")}
         </span>
       </div>
+
       {story.velocity > 0.6 && (
         <span className="absolute right-2.5 top-2.5 rounded-full bg-white/85 px-2 py-0.5 text-[9.5px] font-bold tracking-wide text-accent">
           HOT
         </span>
       )}
+
+      {/* Only appears on hover: the card's primary action is still drafting. */}
+      <span className="absolute bottom-2.5 right-2.5 flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[10px] font-semibold text-ink opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+        Read <ArrowUpRight size={11} aria-hidden />
+      </span>
     </div>
   );
 }

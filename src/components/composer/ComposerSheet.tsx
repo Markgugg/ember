@@ -259,7 +259,9 @@ export function ComposerSheet() {
           </button>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[330px_1fr]">
+        {/* minmax(0,1fr): a plain 1fr track has min-width:auto, so a long draft
+            widens the column past the sheet instead of wrapping inside it. */}
+        <div className="grid min-h-0 flex-1 grid-cols-[330px_minmax(0,1fr)]">
           {/* ── left: pickers ──────────────────────────────────── */}
           <div className="flex min-h-0 flex-col gap-2.5 overflow-auto px-[22px] pb-5 pt-1.5">
             {seg === "both" && (story || conversation) && (
@@ -450,7 +452,7 @@ export function ComposerSheet() {
           </div>
 
           {/* ── right: reasoning → draft ───────────────────────── */}
-          <div className="flex min-h-0 flex-col gap-3 border-l border-[rgb(27_36_48/0.07)] px-[22px] pb-5 pt-1.5">
+          <div className="flex min-h-0 min-w-0 flex-col gap-3 border-l border-[rgb(27_36_48/0.07)] px-[22px] pb-5 pt-1.5">
             {draft ? (
               <DraftPane
                 draft={draft}
@@ -496,10 +498,10 @@ export function ComposerSheet() {
                     </span>
                   </a>
                 )}
-                <p className="text-[10.5px] leading-relaxed text-ink-3">
+                <p className="break-words text-[10.5px] leading-relaxed text-ink-3">
                   Sources: {draft.sourceNote}
                 </p>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <span className="text-[11.5px] text-ink-3">
                     {draft.body.length} / 3000
                   </span>
