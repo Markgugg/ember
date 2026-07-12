@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useUiStore } from "@/stores/ui";
+import { ProfileMenu } from "@/components/layout/ProfileMenu";
 
 const tabs = [
   { href: "/", label: "Home" },
@@ -30,7 +30,6 @@ export function FloatingNav({ initials }: { initials: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const params = useSearchParams();
-  const openSettings = useUiStore((s) => s.openSettings);
 
   const openComposer = () => {
     const next = new URLSearchParams(params.toString());
@@ -83,14 +82,7 @@ export function FloatingNav({ initials }: { initials: string }) {
         Write a post
       </button>
 
-      <button
-        type="button"
-        onClick={openSettings}
-        aria-label="Voice and profile settings"
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[rgb(27_36_48/0.85)] text-[11.5px] font-semibold text-white transition-transform duration-200 hover:scale-105"
-      >
-        {initials}
-      </button>
+      <ProfileMenu initials={initials} />
     </header>
   );
 }

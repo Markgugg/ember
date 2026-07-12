@@ -255,6 +255,18 @@ export async function linkedinAvailable(): Promise<boolean> {
   return linkedinConfigured();
 }
 
+/**
+ * Wipe everything this identity made — profile, transcripts, insights,
+ * briefs, drafts — and start over. The identity cookie itself survives, so
+ * "fresh" means an empty account, not a new one. Deliberately loud in the
+ * UI: this is the only destructive button in the product.
+ */
+export async function resetAccount(): Promise<void> {
+  const repo = await getRepo();
+  await repo.deleteAllUserData(await getUserId());
+  revalidatePath("/", "layout");
+}
+
 /** Onboarding's live scan step. */
 export async function loadPulsePreview(): Promise<
   { title: string; meta: string; live: boolean }[]

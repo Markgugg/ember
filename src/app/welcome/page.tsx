@@ -227,7 +227,7 @@ function WelcomeFlow() {
               <p className="mb-5 text-[11.5px] leading-relaxed text-ink-3">
                 {verifiedName
                   ? "Optional now that LinkedIn verified you — add it if you want it on your profile."
-                  : "Required — everything Current writes is anchored to a real person."}
+                  : "Everything Current writes is anchored to a real person — the URL lets it draft your content profile for you."}
               </p>
 
               {verifiedName ? (
@@ -251,7 +251,17 @@ function WelcomeFlow() {
                 </div>
               ) : null}
 
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-3">
+                {/* Reviewers and the LinkedIn-shy get in without credentials:
+                    a guest types a name on the next step and gets the whole
+                    product except posting. No fake scan, no pretend step 2. */}
+                <button
+                  type="button"
+                  onClick={() => setStep("review")}
+                  className="text-[12px] font-medium text-ink-3 underline-offset-2 transition-colors hover:text-accent hover:underline"
+                >
+                  Just exploring? Continue as a guest
+                </button>
                 <Button onClick={startScan} disabled={!canProceed}>
                   {verifiedName && !urlValid ? "Continue" : "Link my profile"}
                 </Button>

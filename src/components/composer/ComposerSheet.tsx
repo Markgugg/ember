@@ -30,6 +30,18 @@ const SEGS: { key: Seg; label: string }[] = [
 ];
 
 /**
+ * Each mode in one sentence, always visible. Three unlabeled tabs read as
+ * three arbitrary doors — and when one of them refused, it looked like the
+ * app demanding "blend" for no reason. Say what each door is for.
+ */
+const SEG_HINTS: Record<Seg, string> = {
+  news: "Pin a story. Your take comes from conversations you've already banked — Current never invents one.",
+  transcript:
+    "Bring a conversation. Current mines your strongest claim, then finds today's hook for it.",
+  both: "Pin a story AND bring the conversation. The intersection, on purpose.",
+};
+
+/**
  * The composer sheet. Its three segments are the product's two required
  * sources and their intersection:
  *   news       → pick a story; Current finds which of your claims meets it
@@ -317,6 +329,10 @@ export function ComposerSheet() {
           </button>
         </div>
 
+        <p className="-mt-1.5 flex-none px-[22px] pb-2 text-[11.5px] leading-snug text-ink-3">
+          {SEG_HINTS[seg]}
+        </p>
+
         {/* minmax(0,1fr): a plain 1fr track has min-width:auto, so a long draft
             widens the column past the sheet instead of wrapping inside it. */}
         <div className="grid min-h-0 flex-1 grid-cols-[330px_minmax(0,1fr)]">
@@ -553,7 +569,16 @@ export function ComposerSheet() {
                 }}
               />
             ) : refusedBriefId ? (
-              <RefusedPane briefId={refusedBriefId} onRetry={() => setRefusedBriefId(null)} />
+              <RefusedPane
+                briefId={refusedBriefId}
+                seg={seg}
+                onRetry={() => setRefusedBriefId(null)}
+                onBlend={() => {
+                  // Keep the pinned story; the missing half is the conversation.
+                  setSeg("both");
+                  setRefusedBriefId(null);
+                }}
+              />
             ) : streaming || lines.length > 0 ? (
               <ReasoningPane lines={lines} streaming={streaming} failed={failed} />
             ) : storyId ? (
@@ -801,10 +826,14 @@ function DraftPane({
 
 function RefusedPane({
   briefId,
+  seg,
   onRetry,
+  onBlend,
 }: {
   briefId: string;
+  seg: Seg;
   onRetry: () => void;
+  onBlend: () => void;
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 rounded-2xl border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.65)] px-10 text-center">
@@ -812,14 +841,27 @@ function RefusedPane({
         Nothing here is worth your name on it today.
       </p>
       <p className="text-[12.5px] leading-relaxed text-ink-2">
-        Current only writes when something you actually said meets what the
-        world is arguing about. Bring it a conversation, or pick a different
-        story.
+        {seg === "news"
+          ? "Nothing you've banked meets this story yet. That's the refusal working — bring it the conversation where you DID talk about this, and it writes."
+          : "Current only writes when something you actually said meets what the world is arguing about. Bring it a different conversation, or pick a different story."}
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap justify-center gap-2">
+        {seg === "news" && (
+          <button
+            type="button"
+            onClick={onBlend}
+            className="pill-primary px-4 py-2 text-[12.5px]"
+          >
+            Add a conversation
+          </button>
+        )}
         <Link
           href={`/brief/${briefId}`}
-          className="pill-primary px-4 py-2 text-[12.5px]"
+          className={
+            seg === "news"
+              ? "rounded-full bg-[rgb(27_36_48/0.06)] px-4 py-2 text-[12.5px] font-semibold transition-colors hover:bg-[rgb(27_36_48/0.12)]"
+              : "pill-primary px-4 py-2 text-[12.5px]"
+          }
         >
           See why
         </Link>
