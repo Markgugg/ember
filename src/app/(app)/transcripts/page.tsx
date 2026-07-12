@@ -14,7 +14,7 @@ export default async function TranscriptsPage() {
   const conversations = await getConversations(await getUserId());
 
   return (
-    <div className="mx-auto flex max-w-[1200px] animate-fade-up flex-col gap-[18px] px-8 pb-12 pt-[100px]">
+    <div className="mx-auto flex max-w-[1200px] animate-fade-up flex-col gap-[18px] px-5 pb-12 pt-[100px] sm:px-8">
       <div>
         <h1 className="text-[27px] font-bold tracking-[-0.02em]">Your voice</h1>
         <p className="mt-1 text-[13px] text-ink-2">

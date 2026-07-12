@@ -139,6 +139,39 @@ export function draftTitle(draft: Draft): string {
   return firstLine.length > 64 ? `${firstLine.slice(0, 63)}…` : firstLine;
 }
 
+/**
+ * The drafts genuinely waiting on you — one row per brief, not one per angle.
+ *
+ * Every session writes three drafts so you can compare angles, but a brief is
+ * one post you intend to publish. Counting the raw drafts made a single idea
+ * look like three pieces of work, and left the losing angles sitting in the
+ * queue after their sibling had already shipped.
+ *
+ * So: a brief with any planned or posted draft is done and drops out entirely.
+ * Otherwise it contributes exactly one row — the angle Current recommended.
+ * The others stay reachable through "Other angles" on the brief.
+ *
+ * Home and /queue both call this, so their counts can't drift apart.
+ */
+export function readyToPost(drafts: Draft[]): Draft[] {
+  const spokenFor = new Set(
+    drafts
+      .filter((d) => d.plannedFor || d.status === "posted")
+      .map((d) => d.briefId),
+  );
+
+  const byBrief = new Map<string, Draft>();
+  for (const draft of drafts) {
+    if (spokenFor.has(draft.briefId)) continue;
+    if (draft.status === "posted" || draft.plannedFor) continue;
+    const held = byBrief.get(draft.briefId);
+    if (!held || (draft.isPrimary && !held.isPrimary)) {
+      byBrief.set(draft.briefId, draft);
+    }
+  }
+  return [...byBrief.values()];
+}
+
 export function formatAge(hours: number): string {
   if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} min`;
   if (hours < 24) return `${Math.round(hours)} h`;

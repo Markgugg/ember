@@ -192,7 +192,7 @@ function WelcomeFlow() {
       <Ambient />
 
       {/* ── left panel ───────────────────────────────────────────── */}
-      <div className="relative z-10 flex w-full flex-col px-10 py-8 lg:max-w-[560px]">
+      <div className="relative z-10 flex w-full flex-col px-6 py-8 sm:px-10 lg:max-w-[560px]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CurrentMark />

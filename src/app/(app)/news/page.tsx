@@ -19,7 +19,7 @@ export default async function NewsPage() {
   const beats = profile?.beats ?? [];
 
   return (
-    <div className="mx-auto flex max-w-[1200px] animate-fade-up flex-col gap-[18px] px-8 pb-12 pt-[100px]">
+    <div className="mx-auto flex max-w-[1200px] animate-fade-up flex-col gap-[18px] px-5 pb-12 pt-[100px] sm:px-8">
       <div className="flex flex-wrap items-end gap-3.5">
         <div>
           <div className="flex items-center gap-2.5">

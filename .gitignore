@@ -46,3 +46,6 @@ next-env.d.ts
 
 # Design-review render from scripts/preview-field.mjs
 .field-preview.png
+
+.vercel
+.env*

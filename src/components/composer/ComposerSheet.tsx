@@ -129,7 +129,13 @@ export function ComposerSheet() {
 
   useEffect(() => {
     if (!open || sources) return;
-    void loadComposerSources().then(setSources);
+    // Without the catch, a failed load leaves the skeleton up forever and the
+    // sheet reads as empty rather than broken.
+    void loadComposerSources()
+      .then(setSources)
+      .catch(() =>
+        setNotice("Couldn't load your stories and conversations. Reload?"),
+      );
   }, [open, sources]);
 
   useEffect(() => {
@@ -208,6 +214,24 @@ export function ComposerSheet() {
     [sources, conversationId],
   );
 
+  /**
+   * The five rows to offer — plus the selected conversation, always.
+   *
+   * Home links straight into a conversation, and the list is capped at five.
+   * A selection that fell outside the cap rendered no row at all, while the
+   * paste box below stayed hidden because something *was* selected: an empty
+   * panel with a live "Find the post" button and no way to see or change what
+   * it would run on.
+   */
+  const pickable = useMemo(() => {
+    const all = sources?.conversations ?? [];
+    const top = all.slice(0, 5);
+    if (conversation && !top.some((c) => c.id === conversation.id)) {
+      return [conversation, ...top.slice(0, 4)];
+    }
+    return top;
+  }, [sources, conversation]);
+
   const canGenerate = useMemo(() => {
     if (streaming) return false;
     // A pinned story needs a banked claim to meet; with none, this tab can
@@ -215,8 +239,10 @@ export function ComposerSheet() {
     if (seg === "news") return Boolean(storyId) && sources?.hasClaims !== false;
     // transcript & blend: a conversation is required; in blend the story is
     // optional — with none picked, Current auto-picks today's best match.
-    return Boolean(conversationId) || pasted.trim().split(/\s+/).length > 20;
-  }, [seg, storyId, conversationId, pasted, streaming, sources]);
+    // The resolved conversation, not the raw id: an id we can't find is an id
+    // we can't run on.
+    return Boolean(conversation) || pasted.trim().split(/\s+/).length > 20;
+  }, [seg, storyId, conversation, pasted, streaming, sources]);
 
   const generate = () => {
     setDraft(null);
@@ -296,19 +322,19 @@ export function ComposerSheet() {
             "0 40px 90px rgb(31 45 65 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.95)",
         }}
       >
-        {/* header */}
-        <div className="flex flex-none items-center gap-3.5 px-[22px] py-4">
+        {/* header — wraps on a phone rather than pushing the close button off */}
+        <div className="flex flex-none flex-wrap items-center gap-x-3.5 gap-y-2 px-[22px] py-4">
           <span className="text-base font-bold tracking-[-0.01em] text-ink">
             New post
           </span>
-          <div className="flex gap-0.5 rounded-xl bg-[rgb(27_36_48/0.06)] p-[3px]">
+          <div className="order-3 flex w-full gap-0.5 rounded-xl bg-[rgb(27_36_48/0.06)] p-[3px] sm:order-none sm:w-auto">
             {SEGS.map((s) => (
               <button
                 key={s.key}
                 type="button"
                 onClick={() => setSeg(s.key)}
                 aria-pressed={seg === s.key}
-                className={`rounded-[9px] px-[15px] py-1.5 text-xs font-semibold transition-colors duration-200 ${
+                className={`flex-1 rounded-[9px] px-2.5 py-1.5 text-xs font-semibold transition-colors duration-200 sm:flex-none sm:px-[15px] ${
                   seg === s.key
                     ? "bg-accent text-white shadow-[0_2px_10px_rgb(10_102_194/0.35)]"
                     : "text-ink-2 hover:bg-[rgb(255_255_255/0.6)]"
@@ -323,7 +349,7 @@ export function ComposerSheet() {
             type="button"
             onClick={close}
             aria-label="Close composer"
-            className="flex size-7 items-center justify-center rounded-full bg-[rgb(27_36_48/0.07)] transition-colors hover:bg-[rgb(27_36_48/0.14)]"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[rgb(27_36_48/0.07)] transition-colors hover:bg-[rgb(27_36_48/0.14)]"
           >
             <X size={11} strokeWidth={1.8} />
           </button>
@@ -334,10 +360,12 @@ export function ComposerSheet() {
         </p>
 
         {/* minmax(0,1fr): a plain 1fr track has min-width:auto, so a long draft
-            widens the column past the sheet instead of wrapping inside it. */}
-        <div className="grid min-h-0 flex-1 grid-cols-[330px_minmax(0,1fr)]">
+            widens the column past the sheet instead of wrapping inside it.
+            Below md the 330px picker column and the draft pane can't share a
+            phone's width, so they stack and the sheet scrolls as one. */}
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[330px_minmax(0,1fr)] md:overflow-hidden">
           {/* ── left: pickers ──────────────────────────────────── */}
-          <div className="flex min-h-0 flex-col gap-2.5 overflow-auto px-[22px] pb-5 pt-1.5">
+          <div className="flex min-h-0 flex-col gap-2.5 px-[22px] pb-5 pt-1.5 md:overflow-auto">
             {seg === "both" && (story || conversation) && (
               <div className="rounded-[14px] border-[1.5px] border-[rgb(10_102_194/0.35)] bg-[rgb(10_102_194/0.06)] p-3">
                 <SectionLabel className="mb-1.5">
@@ -444,7 +472,7 @@ export function ComposerSheet() {
                   <SkeletonRows />
                 ) : (
                   <>
-                    {sources.conversations.slice(0, 5).map((c) => (
+                    {pickable.map((c) => (
                       <PickRow
                         key={c.id}
                         title={c.name}
@@ -457,7 +485,9 @@ export function ComposerSheet() {
                         }}
                       />
                     ))}
-                    {!conversationId && (
+                    {/* Keyed off the resolved conversation, not the raw id: a
+                        stale ?conversation= must still leave you a way in. */}
+                    {!conversation && (
                       <>
                         <textarea
                           value={pasted}
@@ -554,7 +584,7 @@ export function ComposerSheet() {
           </div>
 
           {/* ── right: reasoning → draft ───────────────────────── */}
-          <div className="flex min-h-0 min-w-0 flex-col gap-3 border-l border-[rgb(27_36_48/0.07)] px-[22px] pb-5 pt-1.5">
+          <div className="flex min-h-0 min-w-0 flex-col gap-3 border-t border-[rgb(27_36_48/0.07)] px-[22px] pb-5 pt-4 md:border-l md:border-t-0 md:pt-1.5">
             {draft ? (
               <DraftPane
                 draft={draft}

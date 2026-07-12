@@ -2,7 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getRepo } from "@/lib/db";
 import { getUserId } from "@/lib/identity";
-import { getConversations, getStories, draftTitle, formatAge } from "@/lib/view";
+import {
+  getConversations,
+  getStories,
+  draftTitle,
+  formatAge,
+  readyToPost,
+} from "@/lib/view";
 import { StoryCard, LiveBadge } from "@/components/news/StoryCard";
 import { ScrollRow } from "@/components/ui/ScrollRow";
 import { ComposeLink } from "@/components/composer/ComposeLink";
@@ -24,8 +30,14 @@ export default async function Home() {
     ]);
 
   const firstName = profile.displayName?.split(" ")[0] ?? "";
-  const queued = drafts
-    .filter((d) => d.status !== "posted")
+
+  // The same two buckets /queue shows, from the same helper — counting raw
+  // drafts here instead made home advertise posts the queue considered done
+  // (a brief's two losing angles outlive the sibling that shipped).
+  const planned = drafts.filter((d) => d.status !== "posted" && d.plannedFor);
+  const ready = readyToPost(drafts);
+  const waiting = planned.length + ready.length;
+  const queued = [...planned, ...ready]
     .sort((a, b) =>
       (a.plannedFor ?? "9999").localeCompare(b.plannedFor ?? "9999"),
     )
@@ -36,7 +48,7 @@ export default async function Home() {
   const angles = insights.filter((i) => i.status !== "posted").length;
 
   return (
-    <div className="mx-auto flex max-w-[1200px] animate-fade-up flex-col gap-[22px] px-8 pb-12 pt-[100px]">
+    <div className="mx-auto flex max-w-[1200px] animate-fade-up flex-col gap-[22px] px-5 pb-12 pt-[100px] sm:px-8">
       {/* greeting + real numbers */}
       <div className="flex flex-wrap items-end gap-4">
         <div>
@@ -46,8 +58,8 @@ export default async function Home() {
           </h1>
           <p className="mt-1 text-[13px] text-ink-2">
             {longDate()} ·{" "}
-            {queued.length > 0
-              ? `${queued.length} post${queued.length === 1 ? "" : "s"} waiting in your queue`
+            {waiting > 0
+              ? `${waiting} post${waiting === 1 ? "" : "s"} waiting in your queue`
               : "nothing queued — the feed is live below"}
           </p>
         </div>
@@ -164,9 +176,9 @@ export default async function Home() {
           <div className="mb-2.5 flex items-baseline gap-2">
             <span className="text-[15px] font-bold">Queue</span>
             <span className="text-[11.5px] text-ink-3">
-              {queued.length === 0
+              {waiting === 0
                 ? "nothing waiting"
-                : `${queued.length} ready to post`}
+                : `${planned.length} planned · ${ready.length} ready`}
             </span>
             <div className="flex-1" />
             <Link
