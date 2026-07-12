@@ -54,6 +54,12 @@ export interface Repo {
   // profiles
   getProfile(userId: string): Promise<Profile | null>;
   upsertProfile(profile: Profile): Promise<Profile>;
+  /**
+   * The account that already owns this LinkedIn member, if any — the
+   * sign-back-in path. Prefers an onboarded profile when the same member
+   * was connected from more than one browser.
+   */
+  findUserIdByLinkedinUrn(urn: string): Promise<string | null>;
 
   // transcripts
   insertTranscript(t: NewTranscript): Promise<Transcript>;

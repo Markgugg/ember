@@ -75,6 +75,15 @@ const rawMemoryRepo: Repo = {
     state().profiles.set(profile.id, profile);
     return profile;
   },
+  async findUserIdByLinkedinUrn(urn) {
+    let fallback: string | null = null;
+    for (const p of state().profiles.values()) {
+      if (p.linkedinUrn !== urn) continue;
+      if (p.onboardedAt) return p.id;
+      fallback = fallback ?? p.id;
+    }
+    return fallback;
+  },
 
   async insertTranscript(t: NewTranscript) {
     const row: Transcript = { ...t, id: randomUUID(), createdAt: now() };

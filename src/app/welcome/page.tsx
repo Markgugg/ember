@@ -264,7 +264,9 @@ function WelcomeFlow() {
                     </p>
                   ) : (
                     <p className="mt-1.5 text-[11px] text-ink-3">
-                      Optional now — it also turns on one-click posting later.
+                      Optional — it turns on one-click posting, and if
+                      you&apos;ve used Current before it brings your account
+                      back.
                     </p>
                   )}
                 </div>

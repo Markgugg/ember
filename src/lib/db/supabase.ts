@@ -189,6 +189,17 @@ export const supabaseRepo: Repo = {
     throwOn(error, "upsertProfile");
     return toProfile(data);
   },
+  async findUserIdByLinkedinUrn(urn) {
+    const { data, error } = await admin()
+      .from("profiles")
+      .select("id")
+      .eq("linkedin_urn", urn)
+      .order("onboarded_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    throwOn(error, "findUserIdByLinkedinUrn");
+    return data?.id ?? null;
+  },
 
   async insertTranscript(t: NewTranscript) {
     const { data, error } = await admin()
