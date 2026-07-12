@@ -127,16 +127,36 @@ export function ComposerSheet() {
     }
   }, [open, params, composeParam, storyParam, conversationParam, insightParam, run]);
 
+  /**
+   * Refetch every time the sheet opens — not once and cached.
+   *
+   * The sheet lives in the (app) layout, so it stays mounted while you move
+   * between Home, Transcripts and Queue. Fetching only when `sources` was null
+   * meant the very first open won: bank a conversation afterwards and the
+   * picker still showed the empty list it had cached before the transcript
+   * existed. The stories go stale the same way.
+   *
+   * Previous sources stay on screen while the refetch is in flight, so a
+   * reopen doesn't flash a skeleton.
+   */
   useEffect(() => {
-    if (!open || sources) return;
+    if (!open) return;
+    let cancelled = false;
     // Without the catch, a failed load leaves the skeleton up forever and the
     // sheet reads as empty rather than broken.
     void loadComposerSources()
-      .then(setSources)
-      .catch(() =>
-        setNotice("Couldn't load your stories and conversations. Reload?"),
-      );
-  }, [open, sources]);
+      .then((next) => {
+        if (!cancelled) setSources(next);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setNotice("Couldn't load your stories and conversations. Reload?");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -366,25 +386,31 @@ export function ComposerSheet() {
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[330px_minmax(0,1fr)] md:overflow-hidden">
           {/* ── left: pickers ──────────────────────────────────── */}
           <div className="flex min-h-0 flex-col gap-2.5 px-[22px] pb-5 pt-1.5 md:overflow-auto">
-            {seg === "both" && (story || conversation) && (
-              <div className="rounded-[14px] border-[1.5px] border-[rgb(10_102_194/0.35)] bg-[rgb(10_102_194/0.06)] p-3">
-                <SectionLabel className="mb-1.5">
-                  Story + conversation
-                </SectionLabel>
-                <p className="truncate text-[12px] font-semibold">
-                  {story?.title ?? "auto-pick from today's feed"}
-                </p>
-                <p className="my-1 text-center text-[11px] font-bold text-ink-4">
-                  +
-                </p>
-                <p className="truncate text-[12px] font-semibold">
-                  {conversation?.name ??
-                    (pasted.trim().length > 40
-                      ? "your pasted conversation"
-                      : "— pick a conversation below")}
-                </p>
-              </div>
-            )}
+            {/* A post is always a story meeting something you said — so the
+                transcript tab shows the same pairing Blend does, and says out
+                loud that it picks the story for you. */}
+            {(seg === "both" || seg === "transcript") &&
+              (story || conversation || pasted.trim().length > 40) && (
+                <div className="shrink-0 rounded-[14px] border-[1.5px] border-[rgb(10_102_194/0.35)] bg-[rgb(10_102_194/0.06)] p-3">
+                  <SectionLabel className="mb-1.5">
+                    Story + conversation
+                  </SectionLabel>
+                  <p className="truncate text-[12px] font-semibold">
+                    {seg === "transcript"
+                      ? "today's best match — Current picks it"
+                      : (story?.title ?? "auto-pick from today's feed")}
+                  </p>
+                  <p className="my-1 text-center text-[11px] font-bold text-ink-4">
+                    +
+                  </p>
+                  <p className="truncate text-[12px] font-semibold">
+                    {conversation?.name ??
+                      (pasted.trim().length > 40
+                        ? "your pasted conversation"
+                        : "— pick a conversation below")}
+                  </p>
+                </div>
+              )}
 
             {seg === "news" && sources !== null && !sources.hasClaims && (
               <div className="mb-3 shrink-0 rounded-[14px] border border-[rgb(10_102_194/0.22)] bg-[rgb(10_102_194/0.06)] p-3.5">
@@ -548,6 +574,14 @@ export function ComposerSheet() {
                 {storyId
                   ? "Blend pins the story and the conversation together. If nothing you said meets that story, Current says so instead of inventing an opinion for you."
                   : "No story picked — Current will auto-pick today's best match for what you said."}
+              </p>
+            )}
+
+            {seg === "transcript" && (
+              <p className="mt-1 shrink-0 text-[10.5px] leading-relaxed text-ink-3">
+                Current reads today&apos;s feed and picks the story your claim
+                actually meets. Want to choose the story yourself? Use Blend
+                both.
               </p>
             )}
 

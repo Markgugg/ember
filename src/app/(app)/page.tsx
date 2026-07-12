@@ -46,6 +46,10 @@ export default async function Home() {
   const shippedPosts = drafts.filter((d) => d.status === "posted");
   const shipped = shippedPosts.length;
   const angles = insights.filter((i) => i.status !== "posted").length;
+  // One brief is one post you sat down to write; the three angles under it are
+  // choices, not three pieces of work. Counting raw drafts turned a single post
+  // into "3 drafts written".
+  const postsDrafted = new Set(drafts.map((d) => d.briefId)).size;
 
   return (
     <div className="mx-auto flex max-w-[1200px] animate-fade-up flex-col gap-[22px] px-5 pb-12 pt-[100px] sm:px-8">
@@ -67,7 +71,7 @@ export default async function Home() {
         <div className="glass-soft flex items-stretch overflow-hidden rounded-[20px]">
           <Stat value={angles} label="Angles banked" />
           <Divider />
-          <Stat value={drafts.length} label="Drafts written" />
+          <Stat value={postsDrafted} label="Posts drafted" />
           <Divider />
           <Stat value={shipped} label="Posts shipped" />
         </div>
