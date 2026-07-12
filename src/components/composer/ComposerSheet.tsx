@@ -19,7 +19,6 @@ import {
   setDraftMediaStyle,
   type ComposerSources,
 } from "@/app/actions";
-import { SAMPLE_TRANSCRIPT } from "@/lib/sample";
 
 type Seg = "news" | "transcript" | "both";
 
@@ -552,15 +551,6 @@ export function ComposerSheet() {
                           >
                             <FileUp size={12} aria-hidden /> Upload
                           </button>
-                          {pasted.length === 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setPasted(SAMPLE_TRANSCRIPT)}
-                              className="text-[11px] font-semibold text-accent hover:underline"
-                            >
-                              use sample
-                            </button>
-                          )}
                         </div>
                       </>
                     )}

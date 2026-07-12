@@ -6,7 +6,6 @@ import { Upload } from "lucide-react";
 import { Recorder } from "@/components/session/Recorder";
 import { useToast } from "@/components/ui/Toast";
 import { addTranscript } from "@/app/actions";
-import { SAMPLE_TRANSCRIPT } from "@/lib/sample";
 
 /** Paste panel + drop panel. Both bank a conversation; mining happens on draft. */
 export function TranscriptIntake() {
@@ -82,15 +81,6 @@ export function TranscriptIntake() {
           <span className="text-[11.5px] text-ink-3">
             {words > 0 ? `${words} words` : "two minutes of rambling is plenty"}
           </span>
-          {text.length === 0 && (
-            <button
-              type="button"
-              onClick={() => setText(SAMPLE_TRANSCRIPT)}
-              className="text-[11.5px] font-semibold text-accent hover:underline"
-            >
-              use a sample
-            </button>
-          )}
         </div>
         {notice && (
           <p className="flex items-start gap-2 text-[11.5px] text-ink-2">
