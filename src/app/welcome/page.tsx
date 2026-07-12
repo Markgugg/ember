@@ -64,6 +64,13 @@ function WelcomeFlow() {
     }
   }, [params]);
 
+  // A failed OAuth round-trip lands back here with ?linkedin=error. Say so —
+  // swallowing it makes a broken connection look like an idle page refresh.
+  const oauthError =
+    params.get("linkedin") === "error"
+      ? params.get("reason") || "LinkedIn couldn't be connected."
+      : null;
+
   // paste-your-profile: the honest way past LinkedIn's authwall
   const [pastedProfile, setPastedProfile] = useState("");
   const [redrafting, setRedrafting] = useState(false);
@@ -155,8 +162,10 @@ function WelcomeFlow() {
     }
   };
 
+  const [saveError, setSaveError] = useState<string | null>(null);
   const finish = async () => {
     setFinishing(true);
+    setSaveError(null);
     try {
       await saveProfile({
         displayName,
@@ -167,7 +176,11 @@ function WelcomeFlow() {
         voiceSamples: voiceSample.trim() ? [voiceSample.trim()] : undefined,
       });
       router.push("/");
-    } catch {
+    } catch (err) {
+      // A save that fails silently reads as a dead button — say what broke.
+      setSaveError(
+        err instanceof Error ? err.message : "Something went wrong saving.",
+      );
       setFinishing(false);
     }
   };
@@ -245,9 +258,15 @@ function WelcomeFlow() {
                     <BadgeCheck size={15} aria-hidden />
                     Sign in with LinkedIn to verify your name
                   </a>
-                  <p className="mt-1.5 text-[11px] text-ink-3">
-                    Optional now — it also turns on one-click posting later.
-                  </p>
+                  {oauthError ? (
+                    <p className="mt-1.5 text-[11.5px] font-medium text-danger">
+                      LinkedIn didn&apos;t connect: {oauthError}
+                    </p>
+                  ) : (
+                    <p className="mt-1.5 text-[11px] text-ink-3">
+                      Optional now — it also turns on one-click posting later.
+                    </p>
+                  )}
                 </div>
               ) : null}
 
@@ -449,6 +468,12 @@ function WelcomeFlow() {
                   )}
                 </ReviewCard>
               </div>
+
+              {saveError && (
+                <p className="mt-4 text-[12px] font-medium text-danger">
+                  {saveError}
+                </p>
+              )}
 
               <div className="mt-5 flex justify-between">
                 <Button variant="ghost" onClick={() => setStep("connect")}>
