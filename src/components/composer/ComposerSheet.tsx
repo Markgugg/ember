@@ -259,6 +259,22 @@ export function ComposerSheet() {
   const needsAClaim =
     seg === "news" && sources !== null && !sources.hasClaims && !streaming;
 
+  /**
+   * The transcript tab ignores a pinned story on purpose — Current finds the
+   * story your claim actually meets. So previewing one there showed an article
+   * the run would never touch: pick a story in Blend, switch to From a
+   * transcript, and it followed you across.
+   */
+  const previewsStory = seg !== "transcript" && Boolean(storyId);
+
+  /** On a phone the pane is stacked, so it only takes space when it has some. */
+  const rightPaneHasContent =
+    Boolean(draft) ||
+    Boolean(refusedBriefId) ||
+    streaming ||
+    lines.length > 0 ||
+    previewsStory;
+
   const canGenerate = useMemo(() => {
     if (streaming) return false;
     // A pinned story needs a banked claim to meet; with none, this tab can
@@ -390,9 +406,12 @@ export function ComposerSheet() {
             widens the column past the sheet instead of wrapping inside it.
             Below md the 330px picker column and the draft pane can't share a
             phone's width, so they stack and the sheet scrolls as one. */}
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[330px_minmax(0,1fr)] md:overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:grid md:grid-cols-[330px_minmax(0,1fr)] md:overflow-hidden">
           {/* ── left: pickers ──────────────────────────────────── */}
-          <div className="flex min-h-0 flex-col px-[22px] pb-5 pt-1.5">
+          {/* min-h-0 only from md: on a phone it lets this column shrink under
+              its own content, which spills out of the box and paints over the
+              pane below it. */}
+          <div className="flex flex-col px-[22px] pb-5 pt-1.5 md:min-h-0">
             {/* The pickers scroll; the button under them does not. The
                 no-claims card used to push "Find my angle on this" out of the
                 scroll area, so the primary action was off-screen exactly when
@@ -628,7 +647,13 @@ export function ComposerSheet() {
           </div>
 
           {/* ── right: reasoning → draft ───────────────────────── */}
-          <div className="flex min-h-0 min-w-0 flex-col gap-3 border-t border-[rgb(27_36_48/0.07)] px-[22px] pb-5 pt-4 md:border-l md:border-t-0 md:pt-1.5">
+          {/* Stacked under the pickers on a phone, so it only earns the space
+              when it has something to say. The desktop keeps its empty state. */}
+          <div
+            className={`min-w-0 flex-col gap-3 border-t border-[rgb(27_36_48/0.07)] px-[22px] pb-5 pt-4 md:flex md:min-h-0 md:border-l md:border-t-0 md:pt-1.5 ${
+              rightPaneHasContent ? "flex" : "hidden"
+            }`}
+          >
             {draft ? (
               <DraftPane
                 draft={draft}
@@ -655,15 +680,16 @@ export function ComposerSheet() {
               />
             ) : streaming || lines.length > 0 ? (
               <ReasoningPane lines={lines} streaming={streaming} failed={failed} />
-            ) : storyId ? (
+            ) : previewsStory && storyId ? (
               // Before drafting, the pane earns its space: it shows what the
               // selected story actually says, so the choice isn't blind.
               <StoryPreviewPane storyId={storyId} />
             ) : (
-              <div className="flex flex-1 items-center justify-center rounded-2xl border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.65)]">
+              <div className="flex min-h-[140px] flex-1 items-center justify-center rounded-2xl border border-[rgb(27_36_48/0.08)] bg-[rgb(255_255_255/0.65)]">
                 <p className="px-10 text-center text-[13px] leading-relaxed text-ink-3">
-                  Pick a story to see what it says, or write from a conversation
-                  and Current will find today&apos;s best match.
+                  {seg === "transcript"
+                    ? "Bring a conversation. Current reads today's feed and picks the story your claim actually meets."
+                    : "Pick a story to see what it says, or write from a conversation and Current will find today's best match."}
                 </p>
               </div>
             )}
