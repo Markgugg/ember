@@ -251,6 +251,14 @@ export function ComposerSheet() {
     return top;
   }, [sources, conversation]);
 
+  /**
+   * "From the news" pins a story and draws the claim from your bank. With an
+   * empty bank it can only ever refuse — so the tab stops pretending it can
+   * write and points at the one thing that would let it.
+   */
+  const needsAClaim =
+    seg === "news" && sources !== null && !sources.hasClaims && !streaming;
+
   const canGenerate = useMemo(() => {
     if (streaming) return false;
     // A pinned story needs a banked claim to meet; with none, this tab can
@@ -384,7 +392,12 @@ export function ComposerSheet() {
             phone's width, so they stack and the sheet scrolls as one. */}
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[330px_minmax(0,1fr)] md:overflow-hidden">
           {/* ── left: pickers ──────────────────────────────────── */}
-          <div className="flex min-h-0 flex-col gap-2.5 px-[22px] pb-5 pt-1.5 md:overflow-auto">
+          <div className="flex min-h-0 flex-col px-[22px] pb-5 pt-1.5">
+            {/* The pickers scroll; the button under them does not. The
+                no-claims card used to push "Find my angle on this" out of the
+                scroll area, so the primary action was off-screen exactly when
+                a brand-new account first went looking for it. */}
+            <div className="flex flex-col gap-2.5 md:min-h-0 md:flex-1 md:overflow-auto">
             {/* A post is always a story meeting something you said — so the
                 transcript tab shows the same pairing Blend does, and says out
                 loud that it picks the story for you. */}
@@ -411,22 +424,15 @@ export function ComposerSheet() {
                 </div>
               )}
 
-            {seg === "news" && sources !== null && !sources.hasClaims && (
-              <div className="mb-3 shrink-0 rounded-[14px] border border-[rgb(10_102_194/0.22)] bg-[rgb(10_102_194/0.06)] p-3.5">
+            {needsAClaim && (
+              <div className="shrink-0 rounded-[14px] border border-[rgb(10_102_194/0.22)] bg-[rgb(10_102_194/0.06)] p-3.5">
                 <p className="mb-1 text-[12.5px] font-semibold text-ink">
                   Current has nothing of yours to say about this yet.
                 </p>
-                <p className="mb-2.5 text-[12px] leading-relaxed text-ink-2">
+                <p className="text-[12px] leading-relaxed text-ink-2">
                   A story on its own isn&apos;t a post. Give it something you
                   actually said and it will find where the two meet.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setSeg("both")}
-                  className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-white transition-transform hover:scale-[1.03]"
-                >
-                  Add a conversation
-                </button>
               </div>
             )}
 
@@ -575,36 +581,50 @@ export function ComposerSheet() {
               </p>
             )}
 
-            {notice && (
-              <p className="flex items-start gap-2 text-[11.5px] text-ink-2">
-                <span
-                  aria-hidden
-                  className="mt-1.5 size-1.5 shrink-0 rounded-full bg-caution"
-                />
-                {notice}
-              </p>
-            )}
+              {notice && (
+                <p className="flex items-start gap-2 text-[11.5px] text-ink-2">
+                  <span
+                    aria-hidden
+                    className="mt-1.5 size-1.5 shrink-0 rounded-full bg-caution"
+                  />
+                  {notice}
+                </p>
+              )}
+            </div>
 
-            <div className="flex-1" />
+            {/* Pinned under the scroll area — always reachable. With nothing
+                banked, the news tab can only refuse, so the button becomes the
+                way out of that instead of a dead control. */}
+            <div className="mt-2.5 flex shrink-0 flex-col gap-2.5">
+              {needsAClaim ? (
+                <button
+                  type="button"
+                  onClick={() => setSeg("both")}
+                  className="pill-primary p-3 text-[13px]"
+                >
+                  Add a conversation first
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={generate}
+                  disabled={!canGenerate}
+                  className="pill-primary p-3 text-[13px]"
+                >
+                  {btnLabel}
+                </button>
+              )}
 
-            <button
-              type="button"
-              onClick={generate}
-              disabled={!canGenerate}
-              className="pill-primary p-3 text-[13px]"
-            >
-              {btnLabel}
-            </button>
-
-            {streaming && (
-              <div className="flex items-center justify-center gap-2 text-[11.5px] text-ink-2">
-                <span
-                  aria-hidden
-                  className="size-3 animate-spin-fast rounded-full border-2 border-[rgb(10_102_194/0.25)] border-t-accent"
-                />
-                Writing in your voice…
-              </div>
-            )}
+              {streaming && (
+                <div className="flex items-center justify-center gap-2 text-[11.5px] text-ink-2">
+                  <span
+                    aria-hidden
+                    className="size-3 animate-spin-fast rounded-full border-2 border-[rgb(10_102_194/0.25)] border-t-accent"
+                  />
+                  Writing in your voice…
+                </div>
+              )}
+            </div>
           </div>
 
           {/* ── right: reasoning → draft ───────────────────────── */}
